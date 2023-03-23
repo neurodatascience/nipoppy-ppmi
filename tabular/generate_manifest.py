@@ -81,10 +81,6 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
     fpath_tabular = dpath_input / tabular_filename
     fpath_manifest = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
 
-    # check if file exists
-    if fpath_manifest.exists() and not overwrite:
-        raise FileExistsError(f'File exists: {fpath_manifest}. Use {FLAG_OVERWRITE} to overwrite')
-
     # load dfs
     df_imaging = pd.read_csv(fpath_imaging, dtype=str)
     df_tabular = pd.read_csv(fpath_tabular, dtype=str)
@@ -162,6 +158,10 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
 
     print('Created manifest:')
     print(df_manifest)
+
+    # check if file exists
+    if fpath_manifest.exists() and not overwrite:
+        raise FileExistsError(f'File exists: {fpath_manifest}. Use {FLAG_OVERWRITE} to overwrite')
 
     # save file
     df_manifest.to_csv(fpath_manifest, index=False, header=True)
