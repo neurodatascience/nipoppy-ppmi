@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -110,6 +111,11 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
     df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].map(VISIT_SESSION_MAP)
     n_rows_orig = df_imaging.shape[0]
 
+    # check if all expected sessions are present
+    diff_sessions = set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(df_imaging[COL_SESSION_MANIFEST])
+    if len(diff_sessions) != 0:
+        warnings.warn(f'Did not encounter all sessions listed in global_config. Missing: {diff_sessions}')
+
     # only keep sessions that are listed in global_config
     df_imaging = df_imaging.dropna(axis='index', how='any', subset=COL_SESSION_MANIFEST)
     print(
@@ -118,9 +124,17 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
     )
 
     # create imaging datatype availability lists
-    df_imaging = df_imaging.groupby([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST, COL_SESSION_MANIFEST])[COL_DATATYPE_MANIFEST].aggregate(get_datatype_list)
+    seen_datatypes = set()
+    df_imaging = df_imaging.groupby([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST, COL_SESSION_MANIFEST])[COL_DATATYPE_MANIFEST].aggregate(
+        lambda modalities: get_datatype_list(modalities, seen=seen_datatypes)
+    )
     df_imaging = df_imaging.reset_index()
     print(f'\tFinal imaging dataframe shape: {df_imaging.shape}')
+
+    # check if all expected datatypes are present
+    diff_datatypes = set(MODALITY_DATATYPE_MAP.values()) - seen_datatypes
+    if len(diff_datatypes) != 0:
+        warnings.warn(f'Did not encounter all datatypes in MODALITY_DATATYPE_MAP. Missing: {diff_datatypes}')
     
     print('Processing tabular data...')
 
@@ -162,13 +176,18 @@ def validate_visit_session_map(global_config):
             f'Invalid VISIT_SESSION_MAP: {VISIT_SESSION_MAP}. Must have exactly one entry'
             f' for each session in global_config: {global_config[GLOBAL_CONFIG_SESSIONS]}')
 
-def get_datatype_list(modalities: pd.Series):
+def get_datatype_list(modalities: pd.Series, seen=None):
     try:
         datatypes = modalities.apply(lambda modality: MODALITY_DATATYPE_MAP[modality])
     except KeyError as ex:
         raise RuntimeError(
             f'Found modality without mapping in VISIT_MAP_IMAGING_TO_TABULAR: {ex.args[0]}')
-    return datatypes.drop_duplicates().sort_values().to_list()
+    datatypes = datatypes.drop_duplicates().sort_values().to_list()
+    
+    if isinstance(seen, set):
+        seen.update(datatypes)
+
+    return datatypes
 
 if __name__ == '__main__':
     # argparse
