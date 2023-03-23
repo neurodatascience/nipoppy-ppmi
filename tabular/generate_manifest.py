@@ -174,9 +174,9 @@ if __name__ == '__main__':
     # argparse
     HELPTEXT = f"""
     Script to generate manifest file for PPMI dataset.
-    Requires an imaging data info file that can be downloaded from the LONI IDA, 
-    as well as the PPMI {DEFAULT_TABULAR_FILENAME} file. 
-    Both files are expected to be in [DATASET_ROOT]/{DPATH_INPUT_RELATIVE}.
+    Requires an imaging data availability info file that can be downloaded from 
+    the LONI IDA, as well as the PPMI tabular data availability info file. 
+    Both files should be in [DATASET_ROOT]/{DPATH_INPUT_RELATIVE}.
     """
     parser = argparse.ArgumentParser(description=HELPTEXT)
     parser.add_argument(
@@ -184,11 +184,13 @@ if __name__ == '__main__':
         help='path to global config file for your mr_proc dataset (required)')
     parser.add_argument(
         '--imaging_filename', type=str, default=DEFAULT_IMAGING_FILENAME,
-        help=('name of file containing imaging data availability info'
+        help=('name of file containing imaging data availability info, with columns'
+              f' "{COL_SUBJECT_IMAGING}", "{COL_VISIT_IMAGING}", and "{COL_MODALITY_IMAGING}"'
               f' (default: {DEFAULT_IMAGING_FILENAME})'))
     parser.add_argument(
         '--tabular_filename', type=str, default=DEFAULT_TABULAR_FILENAME,
-        help=('name of file containing tabular data availability info'
+        help=('name of file containing tabular data availability info, with columns'
+              f' "{COL_SUBJECT_TABULAR}" and "{COL_VISIT_TABULAR}"'
               f' (default: {DEFAULT_TABULAR_FILENAME})'))
     parser.add_argument(
         FLAG_OVERWRITE, action='store_true',
