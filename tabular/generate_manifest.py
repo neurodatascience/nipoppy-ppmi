@@ -159,6 +159,9 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
     print('Created manifest:')
     print(df_manifest)
 
+    if df_manifest.shape[0] > df_tabular.shape[0]:
+        warnings.warn('Some imaging entries have no corresponding tabular information')
+
     # check if file exists
     if fpath_manifest.exists() and not overwrite:
         raise FileExistsError(f'File exists: {fpath_manifest}. Use {FLAG_OVERWRITE} to overwrite')
