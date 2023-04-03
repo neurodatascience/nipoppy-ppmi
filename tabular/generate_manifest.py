@@ -9,6 +9,9 @@ import warnings
 import numpy as np
 import pandas as pd
 
+from tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
+from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
+
 DEFAULT_IMAGING_FILENAME = 'idaSearch.csv'
 DEFAULT_TABULAR_FILENAME = 'Age_at_visit.csv'
 
@@ -18,7 +21,6 @@ DPATH_OUTPUT_RELATIVE = Path('tabular')
 
 COL_SUBJECT_IMAGING = 'Subject ID'
 COL_VISIT_IMAGING = 'Visit'
-COL_MODALITY_IMAGING = 'Modality'
 VISIT_IMAGING_MAP = {
     'Baseline': 'BL',
     'Month 6': 'R01',
@@ -32,11 +34,7 @@ VISIT_IMAGING_MAP = {
     'Unscheduled Visit 01': 'U01',
     'Unscheduled Visit 02': 'U02',
 }
-MODALITY_DATATYPE_MAP = {
-    'MRI': 'anat', # PPMI modality to BIDS datatype
-    'DTI': 'dwi',
-    'fMRI': 'func',
-}
+DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
 
 COL_SUBJECT_TABULAR = 'PATNO'
 COL_VISIT_TABULAR = 'EVENT_ID'
@@ -79,11 +77,25 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
     dpath_input = dpath_dataset / DPATH_INPUT_RELATIVE
     fpath_imaging = dpath_input / imaging_filename
     fpath_tabular = dpath_input / tabular_filename
+    fpath_descriptions = Path(__file__).parent / FNAME_DESCRIPTIONS
     fpath_manifest = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
 
-    # load dfs
+    # load data dfs and heuristics json
     df_imaging = pd.read_csv(fpath_imaging, dtype=str)
     df_tabular = pd.read_csv(fpath_tabular, dtype=str)
+
+    with fpath_descriptions.open('r') as file_descriptions:
+        datatype_descriptions_map: dict = json.load(file_descriptions)
+    
+    # reverse the mapping
+    description_datatype_map = {}
+    for datatype, descriptions in datatype_descriptions_map.items():
+        if datatype not in DATATYPES:
+            continue
+        for description in descriptions:
+            if description in description_datatype_map:
+                warnings.warn(f'Description {description} has more than one associated datatype')
+            description_datatype_map[description] = datatype
 
     print('Processing imaging data...')
 
@@ -91,7 +103,7 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
     df_imaging = df_imaging.rename(columns={
         COL_SUBJECT_IMAGING: COL_SUBJECT_MANIFEST,
         COL_VISIT_IMAGING: COL_VISIT_MANIFEST,
-        COL_MODALITY_IMAGING: COL_DATATYPE_MANIFEST,
+        COL_DESCRIPTION_IMAGING: COL_DATATYPE_MANIFEST,
     })
 
     # convert visits from imaging to tabular labels
@@ -122,15 +134,15 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
     # create imaging datatype availability lists
     seen_datatypes = set()
     df_imaging = df_imaging.groupby([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST, COL_SESSION_MANIFEST])[COL_DATATYPE_MANIFEST].aggregate(
-        lambda modalities: get_datatype_list(modalities, seen=seen_datatypes)
+        lambda descriptions: get_datatype_list(descriptions, description_datatype_map, seen=seen_datatypes)
     )
     df_imaging = df_imaging.reset_index()
     print(f'\tFinal imaging dataframe shape: {df_imaging.shape}')
 
     # check if all expected datatypes are present
-    diff_datatypes = set(MODALITY_DATATYPE_MAP.values()) - seen_datatypes
+    diff_datatypes = set(DATATYPES) - seen_datatypes
     if len(diff_datatypes) != 0:
-        warnings.warn(f'Did not encounter all datatypes in MODALITY_DATATYPE_MAP. Missing: {diff_datatypes}')
+        warnings.warn(f'Did not encounter all datatypes in datatype_descriptions_map. Missing: {diff_datatypes}')
     
     print('Processing tabular data...')
 
@@ -179,14 +191,12 @@ def validate_visit_session_map(global_config):
             f'Invalid VISIT_SESSION_MAP: {VISIT_SESSION_MAP}. Must have exactly one entry'
             f' for each session in global_config: {global_config[GLOBAL_CONFIG_SESSIONS]}')
 
-def get_datatype_list(modalities: pd.Series, seen=None):
-    try:
-        datatypes = modalities.apply(lambda modality: MODALITY_DATATYPE_MAP[modality])
-    except KeyError as ex:
-        raise RuntimeError(
-            f'Found modality without mapping in VISIT_MAP_IMAGING_TO_TABULAR: {ex.args[0]}')
+def get_datatype_list(descriptions: pd.Series, description_datatype_map, seen=None):
+
+    datatypes = descriptions.map(description_datatype_map)
+    datatypes = datatypes.loc[~datatypes.isna()]
     datatypes = datatypes.drop_duplicates().sort_values().to_list()
-    
+
     if isinstance(seen, set):
         seen.update(datatypes)
 
@@ -207,7 +217,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--imaging_filename', type=str, default=DEFAULT_IMAGING_FILENAME,
         help=('name of file containing imaging data availability info, with columns'
-              f' "{COL_SUBJECT_IMAGING}", "{COL_VISIT_IMAGING}", and "{COL_MODALITY_IMAGING}"'
+              f' "{COL_SUBJECT_IMAGING}", "{COL_VISIT_IMAGING}", and "{COL_DESCRIPTION_IMAGING}"'
               f' (default: {DEFAULT_IMAGING_FILENAME})'))
     parser.add_argument(
         '--tabular_filename', type=str, default=DEFAULT_TABULAR_FILENAME,
