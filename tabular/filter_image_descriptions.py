@@ -53,6 +53,7 @@ FILTERS = {
             'T2', 
             'sT1W_3D_TFE', 
             'TRA/DUAL',     # SWI/FLAIR
+            'MR',           # phantom subject
         ],
         'exclude_out': [
             'PPMI 2.0',
