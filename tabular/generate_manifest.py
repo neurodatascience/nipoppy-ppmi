@@ -9,11 +9,15 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
-from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
+from filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
+from filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
+
+# subject groups to keep
+GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control']
 
 DEFAULT_IMAGING_FILENAME = 'idaSearch.csv'
 DEFAULT_TABULAR_FILENAME = 'Age_at_visit.csv'
+DEFAULT_GROUP_FILENAME = 'Participant_Status.csv'
 
 # paths relative to DATASET_ROOT
 DPATH_INPUT_RELATIVE = Path('tabular', 'study_data')
@@ -21,6 +25,7 @@ DPATH_OUTPUT_RELATIVE = Path('tabular')
 
 COL_SUBJECT_IMAGING = 'Subject ID'
 COL_VISIT_IMAGING = 'Visit'
+COL_GROUP_IMAGING = 'Research Group'
 VISIT_IMAGING_MAP = {
     'Baseline': 'BL',
     'Month 6': 'R01',
@@ -34,10 +39,17 @@ VISIT_IMAGING_MAP = {
     'Unscheduled Visit 01': 'U01',
     'Unscheduled Visit 02': 'U02',
 }
+GROUP_IMAGING_MAP = {
+    'PD': 'Parkinson\'s Disease',
+    'Prodromal': 'Prodromal',
+    'Control': 'Healthy Control',
+    'SWEDD': 'SWEDD',
+}
 DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
 
 COL_SUBJECT_TABULAR = 'PATNO'
 COL_VISIT_TABULAR = 'EVENT_ID'
+COL_GROUP_TABULAR = 'COHORT_DEFINITION'
 VISIT_SESSION_MAP = {
     'BL': '1',
     'V04': '5',
@@ -64,7 +76,7 @@ GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
 # flags
 FLAG_OVERWRITE = '--overwrite'
 
-def run(global_config_file, imaging_filename, tabular_filename, overwrite=False):
+def run(global_config_file, imaging_filename, tabular_filename, group_filename, overwrite=False):
 
     # parse global config
     with open(global_config_file) as file:
@@ -77,12 +89,14 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
     dpath_input = dpath_dataset / DPATH_INPUT_RELATIVE
     fpath_imaging = dpath_input / imaging_filename
     fpath_tabular = dpath_input / tabular_filename
+    fpath_group = dpath_input / group_filename
     fpath_descriptions = Path(__file__).parent / FNAME_DESCRIPTIONS
     fpath_manifest = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
 
     # load data dfs and heuristics json
     df_imaging = pd.read_csv(fpath_imaging, dtype=str)
     df_tabular = pd.read_csv(fpath_tabular, dtype=str)
+    df_group = pd.read_csv(fpath_group, dtype=str)
 
     with fpath_descriptions.open('r') as file_descriptions:
         datatype_descriptions_map: dict = json.load(file_descriptions)
@@ -97,7 +111,7 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
                 warnings.warn(f'Description {description} has more than one associated datatype')
             description_datatype_map[description] = datatype
 
-    print('Processing imaging data...')
+    # ===== format imaging data =====
 
     # rename columns
     df_imaging = df_imaging.rename(columns={
@@ -113,11 +127,63 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
         )
     except KeyError as ex:
         raise RuntimeError(
-            f'Found visit without mapping in VISIT_MAP_IMAGING_TO_TABULAR: {ex.args[0]}')
+            f'Found visit without mapping in VISIT_IMAGING_MAP: {ex.args[0]}')
 
     # map visits to sessions
     df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].map(VISIT_SESSION_MAP)
-    n_rows_orig = df_imaging.shape[0]
+
+    # map group to tabular data naming scheme
+    df_imaging[COL_GROUP_TABULAR] = df_imaging[COL_GROUP_IMAGING].map(GROUP_IMAGING_MAP)
+
+    # ===== format tabular data =====
+
+    # rename columns
+    df_tabular = df_tabular.rename(columns={
+        COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST, 
+        COL_VISIT_TABULAR: COL_VISIT_MANIFEST,
+    })
+    df_group = df_group.rename(columns={
+        COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST,
+    })
+
+    # add group info to tabular dataframe
+    df_tabular = df_tabular.merge(df_group[[COL_SUBJECT_MANIFEST, COL_GROUP_TABULAR]], on=COL_SUBJECT_MANIFEST, how='left')
+    if df_tabular[COL_GROUP_TABULAR].isna().any():
+        
+        warnings.warn(f'Some subjects in tabular data do not belong to any research group')
+        df_tabular_missing_group = df_tabular.loc[
+            df_tabular[COL_GROUP_TABULAR].isna(),
+            COL_SUBJECT_MANIFEST,
+        ]
+        print(df_tabular_missing_group)
+
+        # try to find group in imaging dataframe
+        for idx, subject in df_tabular_missing_group.items():
+
+            group = df_imaging.loc[
+                df_imaging[COL_SUBJECT_MANIFEST] == subject,
+                COL_GROUP_TABULAR,
+            ].drop_duplicates()
+
+            try:
+                group = group.item()
+            except ValueError:
+                continue
+
+            df_tabular.loc[idx, COL_GROUP_TABULAR] = group
+
+        if df_tabular[COL_GROUP_TABULAR].isna().any():
+            print('Did not successfully fill in missing group values using imaging data')
+        else:
+            print('Successfully filled in missing group values using imaging data')
+
+
+    # ===== process imaging data =====
+
+    print('\nProcessing imaging data...')
+    print(f'\tShape: {df_imaging.shape}')
+
+    print(f'\nSession counts:\n{df_imaging[COL_SESSION_MANIFEST].value_counts(dropna=False)}\n')
 
     # check if all expected sessions are present
     diff_sessions = set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(df_imaging[COL_SESSION_MANIFEST])
@@ -125,10 +191,26 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
         warnings.warn(f'Did not encounter all sessions listed in global_config. Missing: {diff_sessions}')
 
     # only keep sessions that are listed in global_config
+    n_img_before_session_drop = df_imaging.shape[0]
     df_imaging = df_imaging.dropna(axis='index', how='any', subset=COL_SESSION_MANIFEST)
     print(
-        f'\tDropped {n_rows_orig - df_imaging.shape[0]} imaging entries'
+        f'\tDropped {n_img_before_session_drop - df_imaging.shape[0]} imaging entries'
         f' because the session was not in {global_config[GLOBAL_CONFIG_SESSIONS]}'
+    )
+
+    print(f'\nCohort composition:\n{df_imaging[COL_GROUP_TABULAR].value_counts(dropna=False)}\n')
+
+    # check if all expected groups are present
+    diff_groups = set(GROUPS_KEEP) - set(df_imaging[COL_GROUP_TABULAR])
+    if len(diff_groups) != 0:
+        warnings.warn(f'Did not encounter all groups listed in GROUPS_KEEP. Missing: {diff_groups}')
+
+    # only keep subjects in certain groups
+    n_img_before_subject_drop = df_imaging.shape[0]
+    df_imaging = df_imaging.loc[df_imaging[COL_GROUP_TABULAR].isin(GROUPS_KEEP)]
+    print(
+        f'\tDropped {n_img_before_subject_drop - df_imaging.shape[0]} imaging entries'
+        f' because the subject\'s research group was not in {GROUPS_KEEP}'
     )
 
     # create imaging datatype availability lists
@@ -144,19 +226,31 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
     if len(diff_datatypes) != 0:
         warnings.warn(f'Did not encounter all datatypes in datatype_descriptions_map. Missing: {diff_datatypes}')
     
-    print('Processing tabular data...')
+    print('\nProcessing tabular data...')
+    print(f'\tShape: {df_tabular.shape}')
 
-    # rename columns
-    df_tabular = df_tabular.rename(columns={
-        COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST, 
-        COL_VISIT_TABULAR: COL_VISIT_MANIFEST,
-    })
-    print(f'\tTabular dataframe shape: {df_tabular.shape}')
+    print(f'\nCohort composition:\n{df_tabular[COL_GROUP_TABULAR].value_counts(dropna=False)}\n')
+
+    # only keep subjects in certain groups
+    n_tab_before_subject_drop = df_tabular.shape[0]
+    df_tabular = df_tabular.loc[df_tabular[COL_GROUP_TABULAR].isin(GROUPS_KEEP)]
+    print(
+        f'\tDropped {n_tab_before_subject_drop - df_tabular.shape[0]} tabular entries'
+        f' because the subject\'s research group was not in {GROUPS_KEEP}\n'
+    )
 
     # merge on subject and visit
+    key_merge = '_merge'
     df_manifest = df_tabular.merge(df_imaging, how='outer', 
-                                   on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST])
+                                   on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST],
+                                   indicator=key_merge)
     
+    # warning if missing tabular information
+    df_imaging_without_tabular = df_manifest.loc[df_manifest[key_merge] == 'right_only']
+    if len(df_imaging_without_tabular) > 0:
+        warnings.warn('Some imaging entries have no corresponding tabular information')
+        print(f'{df_imaging_without_tabular}\n')
+
     # replace NA datatype by empty list
     df_manifest[COL_DATATYPE_MANIFEST] = df_manifest[COL_DATATYPE_MANIFEST].apply(
         lambda datatype: datatype if isinstance(datatype, list) else []
@@ -171,9 +265,6 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
     print('Created manifest:')
     print(df_manifest)
 
-    if df_manifest.shape[0] > df_tabular.shape[0]:
-        warnings.warn('Some imaging entries have no corresponding tabular information')
-
     # check if file exists
     if fpath_manifest.exists() and not overwrite:
         raise FileExistsError(f'File exists: {fpath_manifest}. Use {FLAG_OVERWRITE} to overwrite')
@@ -186,9 +277,9 @@ def run(global_config_file, imaging_filename, tabular_filename, overwrite=False)
     os.chmod(fpath_manifest, 0o664)
 
 def validate_visit_session_map(global_config):
-    if set(global_config[GLOBAL_CONFIG_SESSIONS]) != set(VISIT_SESSION_MAP.values()):
+    if len(set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(VISIT_SESSION_MAP.values())) > 0:
         raise ValueError(
-            f'Invalid VISIT_SESSION_MAP: {VISIT_SESSION_MAP}. Must have exactly one entry'
+            f'Invalid VISIT_SESSION_MAP: {VISIT_SESSION_MAP}. Must have an entry'
             f' for each session in global_config: {global_config[GLOBAL_CONFIG_SESSIONS]}')
 
 def get_datatype_list(descriptions: pd.Series, description_datatype_map, seen=None):
@@ -207,8 +298,8 @@ if __name__ == '__main__':
     HELPTEXT = f"""
     Script to generate manifest file for PPMI dataset.
     Requires an imaging data availability info file that can be downloaded from 
-    the LONI IDA, as well as the PPMI tabular data availability info file. 
-    Both files should be in [DATASET_ROOT]/{DPATH_INPUT_RELATIVE}.
+    the LONI IDA, as well as the PPMI tabular data availability and participant status info files. 
+    All three files should be in [DATASET_ROOT]/{DPATH_INPUT_RELATIVE}.
     """
     parser = argparse.ArgumentParser(description=HELPTEXT)
     parser.add_argument(
@@ -217,13 +308,18 @@ if __name__ == '__main__':
     parser.add_argument(
         '--imaging_filename', type=str, default=DEFAULT_IMAGING_FILENAME,
         help=('name of file containing imaging data availability info, with columns'
-              f' "{COL_SUBJECT_IMAGING}", "{COL_VISIT_IMAGING}", and "{COL_DESCRIPTION_IMAGING}"'
+              f' "{COL_SUBJECT_IMAGING}", "{COL_VISIT_IMAGING}", "{COL_GROUP_IMAGING}", and "{COL_DESCRIPTION_IMAGING}"'
               f' (default: {DEFAULT_IMAGING_FILENAME})'))
     parser.add_argument(
         '--tabular_filename', type=str, default=DEFAULT_TABULAR_FILENAME,
         help=('name of file containing tabular data availability info, with columns'
               f' "{COL_SUBJECT_TABULAR}" and "{COL_VISIT_TABULAR}"'
               f' (default: {DEFAULT_TABULAR_FILENAME})'))
+    parser.add_argument(
+        '--group_filename', type=str, default=DEFAULT_GROUP_FILENAME,
+        help=('name of file containing participant group info, with columns'
+              f' "{COL_SUBJECT_TABULAR}" and "{COL_GROUP_TABULAR}"'
+              f' (default: {DEFAULT_GROUP_FILENAME})'))
     parser.add_argument(
         FLAG_OVERWRITE, action='store_true',
         help=(f'overwrite any existing {FNAME_MANIFEST} file')
@@ -234,6 +330,7 @@ if __name__ == '__main__':
     global_config_file = args.global_config
     imaging_filename = args.imaging_filename
     tabular_filename = args.tabular_filename
+    group_filename = args.group_filename
     overwrite = args.overwrite
 
-    run(global_config_file, imaging_filename, tabular_filename, overwrite=overwrite)
+    run(global_config_file, imaging_filename, tabular_filename, group_filename, overwrite=overwrite)
