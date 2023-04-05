@@ -16,7 +16,40 @@ from filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYP
 GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control']
 
 DEFAULT_IMAGING_FILENAME = 'idaSearch.csv'
-DEFAULT_TABULAR_FILENAME = 'Age_at_visit.csv'
+DEFAULT_TABULAR_FILENAMES = [ # all motor and non-motor assessments
+    'Age_at_visit.csv', 
+    'Benton_Judgement_of_Line_Orientation.csv',
+    'Clock_Drawing.csv',
+    'Cognitive_Categorization.csv',
+    'Cognitive_Change.csv',
+    'Epworth_Sleepiness_Scale.csv',
+    'Gait_Data___Arm_swing.csv',
+    'Geriatric_Depression_Scale__Short_Version_.csv',
+    'Hopkins_Verbal_Learning_Test_-_Revised.csv',
+    'Letter_-_Number_Sequencing.csv',
+    'Lexical_Fluency.csv',
+    'Montreal_Cognitive_Assessment__MoCA_.csv',
+    'MDS-UPDRS_Part_I.csv',
+    'MDS-UPDRS_Part_I_Patient_Questionnaire.csv',
+    'MDS_UPDRS_Part_II__Patient_Questionnaire.csv',
+    'MDS-UPDRS_Part_III.csv',
+    'MDS-UPDRS_Part_IV__Motor_Complications.csv',
+    'Modified_Boston_Naming_Test.csv',
+    'Modified_Schwab___England_Activities_of_Daily_Living.csv',
+    'Modified_Semantic_Fluency.csv',
+    'Neuro_QoL__Cognition_Function_-_Short_Form.csv',
+    'Neuro_QoL__Communication_-_Short_Form.csv',
+    'Neuro_QoL__Lower_Extremity_Function__Mobility__-_Short_Form.csv',
+    'Neuro_QoL__Upper_Extremity_Function_-_Short_Form.csv',
+    'Participant_Motor_Function_Questionnaire.csv',
+    'QUIP-Current-Short.csv',
+    'REM_Sleep_Behavior_Disorder_Questionnaire.csv',
+    'SCOPA-AUT.csv',
+    'State-Trait_Anxiety_Inventory.csv',
+    'Symbol_Digit_Modalities_Test.csv',
+    'Trail_Making_A_and_B.csv',
+    'University_of_Pennsylvania_Smell_Identification_Test__UPSIT_.csv',
+]
 DEFAULT_GROUP_FILENAME = 'Participant_Status.csv'
 
 # paths relative to DATASET_ROOT
@@ -76,7 +109,7 @@ GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
 # flags
 FLAG_OVERWRITE = '--overwrite'
 
-def run(global_config_file, imaging_filename, tabular_filename, group_filename, overwrite=False):
+def run(global_config_file, imaging_filename, tabular_filenames, group_filename, overwrite=False):
 
     # parse global config
     with open(global_config_file) as file:
@@ -88,15 +121,21 @@ def run(global_config_file, imaging_filename, tabular_filename, group_filename, 
     # generate filepaths
     dpath_input = dpath_dataset / DPATH_INPUT_RELATIVE
     fpath_imaging = dpath_input / imaging_filename
-    fpath_tabular = dpath_input / tabular_filename
+    fpaths_tabular = [dpath_input / tabular_filename for tabular_filename in tabular_filenames]
     fpath_group = dpath_input / group_filename
     fpath_descriptions = Path(__file__).parent / FNAME_DESCRIPTIONS
     fpath_manifest = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
 
     # load data dfs and heuristics json
     df_imaging = pd.read_csv(fpath_imaging, dtype=str)
-    df_tabular = pd.read_csv(fpath_tabular, dtype=str)
     df_group = pd.read_csv(fpath_group, dtype=str)
+    df_tabular = None
+    for fpath_tabular in fpaths_tabular:
+        df_tabular_tmp = pd.read_csv(fpath_tabular, dtype=str)
+        if not len({COL_SUBJECT_TABULAR, COL_VISIT_TABULAR} - set(df_tabular_tmp.columns)) == 0:
+            raise RuntimeError(f'Tabular file {fpath_tabular} does not contain required columns')
+        df_tabular: pd.DataFrame = pd.concat([df_tabular, df_tabular_tmp])
+    df_tabular = df_tabular.drop_duplicates([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])
 
     with fpath_descriptions.open('r') as file_descriptions:
         datatype_descriptions_map: dict = json.load(file_descriptions)
@@ -298,8 +337,9 @@ if __name__ == '__main__':
     HELPTEXT = f"""
     Script to generate manifest file for PPMI dataset.
     Requires an imaging data availability info file that can be downloaded from 
-    the LONI IDA, as well as the PPMI tabular data availability and participant status info files. 
-    All three files should be in [DATASET_ROOT]/{DPATH_INPUT_RELATIVE}.
+    the LONI IDA, the PPMI participant status info files, as well as at least 
+    one PPMI tabular file with subject and visit columns. 
+    All these files should be in [DATASET_ROOT]/{DPATH_INPUT_RELATIVE}.
     """
     parser = argparse.ArgumentParser(description=HELPTEXT)
     parser.add_argument(
@@ -311,10 +351,10 @@ if __name__ == '__main__':
               f' "{COL_SUBJECT_IMAGING}", "{COL_VISIT_IMAGING}", "{COL_GROUP_IMAGING}", and "{COL_DESCRIPTION_IMAGING}"'
               f' (default: {DEFAULT_IMAGING_FILENAME})'))
     parser.add_argument(
-        '--tabular_filename', type=str, default=DEFAULT_TABULAR_FILENAME,
-        help=('name of file containing tabular data availability info, with columns'
+        '--tabular_filenames', type=str, nargs='+', default=DEFAULT_TABULAR_FILENAMES,
+        help=('name of files containing tabular data availability info, with columns'
               f' "{COL_SUBJECT_TABULAR}" and "{COL_VISIT_TABULAR}"'
-              f' (default: {DEFAULT_TABULAR_FILENAME})'))
+              f' (default: {DEFAULT_TABULAR_FILENAMES if len(DEFAULT_TABULAR_FILENAMES) <= 5 else f"{len(DEFAULT_TABULAR_FILENAMES)} files"})'))
     parser.add_argument(
         '--group_filename', type=str, default=DEFAULT_GROUP_FILENAME,
         help=('name of file containing participant group info, with columns'
@@ -329,8 +369,8 @@ if __name__ == '__main__':
     # parse
     global_config_file = args.global_config
     imaging_filename = args.imaging_filename
-    tabular_filename = args.tabular_filename
+    tabular_filenames = args.tabular_filenames
     group_filename = args.group_filename
     overwrite = args.overwrite
 
-    run(global_config_file, imaging_filename, tabular_filename, group_filename, overwrite=overwrite)
+    run(global_config_file, imaging_filename, tabular_filenames, group_filename, overwrite=overwrite)
