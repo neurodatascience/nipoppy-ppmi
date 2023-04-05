@@ -301,6 +301,9 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
             df_manifest[col] = np.nan
     df_manifest = df_manifest[COLS_MANIFEST]
 
+    # sort
+    df_manifest = df_manifest.sort_values([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST])
+
     print('Created manifest:')
     print(df_manifest)
 
