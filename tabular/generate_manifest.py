@@ -66,6 +66,12 @@ VISIT_SESSION_MAP = {
     'V06': '7',
     'V08': '9',
     'V10': '11',
+    'PW': '30', 
+    'ST': '21',
+    'U02': '91',
+    'U01': '90',
+    'SC': '0',
+    'R01': '3', # Month 6
 }
 
 # manifest filename and columns
@@ -125,6 +131,7 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
         for description in descriptions:
             if description in description_datatype_map:
                 warnings.warn(f'Description {description} has more than one associated datatype')
+                print()
             description_datatype_map[description] = datatype
 
     # ===== format imaging data =====
@@ -146,6 +153,10 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
             f'Found visit without mapping in VISIT_IMAGING_MAP: {ex.args[0]}')
 
     # map visits to sessions
+    missing_session_mappings = set(df_imaging[COL_VISIT_MANIFEST]) - set(VISIT_SESSION_MAP.keys())
+    if len(missing_session_mappings) > 0:
+        warnings.warn(f'Missing mapping(s) in VISIT_SESSION_MAP: {missing_session_mappings}')
+        print()
     df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].map(VISIT_SESSION_MAP)
 
     # map group to tabular data naming scheme
@@ -215,7 +226,7 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
 
     # only keep sessions that are listed in global_config
     n_img_before_session_drop = df_imaging.shape[0]
-    df_imaging = df_imaging.dropna(axis='index', how='any', subset=COL_SESSION_MANIFEST)
+    df_imaging = df_imaging.loc[df_imaging[COL_SESSION_MANIFEST].isin(global_config[GLOBAL_CONFIG_SESSIONS])]
     print(
         f'\tDropped {n_img_before_session_drop - df_imaging.shape[0]} imaging entries'
         f' because the session was not in {global_config[GLOBAL_CONFIG_SESSIONS]}'
