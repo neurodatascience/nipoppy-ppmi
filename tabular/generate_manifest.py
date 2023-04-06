@@ -13,7 +13,7 @@ from filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
 from filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
 
 # subject groups to keep
-GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control']
+GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD', 'GenReg Unaff']
 
 DEFAULT_IMAGING_FILENAME = 'idaSearch.csv'
 DEFAULT_TABULAR_FILENAMES = [ # all motor and non-motor assessments
@@ -76,7 +76,9 @@ GROUP_IMAGING_MAP = {
     'PD': 'Parkinson\'s Disease',
     'Prodromal': 'Prodromal',
     'Control': 'Healthy Control',
+    'Phantom': 'Phantom',               # not in participant status file
     'SWEDD': 'SWEDD',
+    'GenReg Unaff': 'GenReg Unaff',     # not in participant status file
 }
 DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
 
@@ -172,7 +174,13 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
     df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].map(VISIT_SESSION_MAP)
 
     # map group to tabular data naming scheme
-    df_imaging[COL_GROUP_TABULAR] = df_imaging[COL_GROUP_IMAGING].map(GROUP_IMAGING_MAP)
+    try:
+        df_imaging[COL_GROUP_TABULAR] = df_imaging[COL_GROUP_IMAGING].apply(
+            lambda group: GROUP_IMAGING_MAP[group]
+        )
+    except KeyError as ex:
+        raise RuntimeError(
+            f'Found group without mapping in GROUP_IMAGING_MAP: {ex.args[0]}')
 
     # ===== format tabular data =====
 
