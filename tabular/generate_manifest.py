@@ -16,39 +16,14 @@ from filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYP
 GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD', 'GenReg Unaff']
 
 DEFAULT_IMAGING_FILENAME = 'idaSearch.csv'
-DEFAULT_TABULAR_FILENAMES = [ # all motor and non-motor assessments
+DEFAULT_TABULAR_FILENAMES = [
     'Age_at_visit.csv', 
-    'Benton_Judgement_of_Line_Orientation.csv',
-    'Clock_Drawing.csv',
-    'Cognitive_Categorization.csv',
-    'Cognitive_Change.csv',
-    'Epworth_Sleepiness_Scale.csv',
-    'Gait_Data___Arm_swing.csv',
-    'Geriatric_Depression_Scale__Short_Version_.csv',
-    'Hopkins_Verbal_Learning_Test_-_Revised.csv',
-    'Letter_-_Number_Sequencing.csv',
-    'Lexical_Fluency.csv',
     'Montreal_Cognitive_Assessment__MoCA_.csv',
     'MDS-UPDRS_Part_I.csv',
     'MDS-UPDRS_Part_I_Patient_Questionnaire.csv',
     'MDS_UPDRS_Part_II__Patient_Questionnaire.csv',
     'MDS-UPDRS_Part_III.csv',
     'MDS-UPDRS_Part_IV__Motor_Complications.csv',
-    'Modified_Boston_Naming_Test.csv',
-    'Modified_Schwab___England_Activities_of_Daily_Living.csv',
-    'Modified_Semantic_Fluency.csv',
-    'Neuro_QoL__Cognition_Function_-_Short_Form.csv',
-    'Neuro_QoL__Communication_-_Short_Form.csv',
-    'Neuro_QoL__Lower_Extremity_Function__Mobility__-_Short_Form.csv',
-    'Neuro_QoL__Upper_Extremity_Function_-_Short_Form.csv',
-    'Participant_Motor_Function_Questionnaire.csv',
-    'QUIP-Current-Short.csv',
-    'REM_Sleep_Behavior_Disorder_Questionnaire.csv',
-    'SCOPA-AUT.csv',
-    'State-Trait_Anxiety_Inventory.csv',
-    'Symbol_Digit_Modalities_Test.csv',
-    'Trail_Making_A_and_B.csv',
-    'University_of_Pennsylvania_Smell_Identification_Test__UPSIT_.csv',
 ]
 DEFAULT_GROUP_FILENAME = 'Participant_Status.csv'
 
