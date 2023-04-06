@@ -196,9 +196,10 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
 
         if df_tabular[COL_GROUP_TABULAR].isna().any():
             print('Did not successfully fill in missing group values using imaging data')
+            print(df_tabular.loc[df_tabular[COL_GROUP_TABULAR].isna()])
+
         else:
             print('Successfully filled in missing group values using imaging data')
-
 
     # ===== process imaging data =====
 
