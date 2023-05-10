@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import datetime
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,10 @@ from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT,
 # subject groups to keep
 GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD', 'GenReg Unaff']
 
+# paths relative to DATASET_ROOT
+DPATH_INPUT_RELATIVE = Path('tabular', 'study_data')
+DPATH_OUTPUT_RELATIVE = Path('tabular')
+
 DEFAULT_IMAGING_FILENAME = 'idaSearch.csv'
 DEFAULT_TABULAR_FILENAMES = [
     'Age_at_visit.csv', 
@@ -25,10 +30,7 @@ DEFAULT_TABULAR_FILENAMES = [
     'MDS-UPDRS_Part_IV__Motor_Complications.csv',
 ]
 DEFAULT_GROUP_FILENAME = 'Participant_Status.csv'
-
-# paths relative to DATASET_ROOT
-DPATH_INPUT_RELATIVE = Path('tabular', 'study_data')
-DPATH_OUTPUT_RELATIVE = Path('tabular')
+DEFAULT_DPATH_BACKUPS_RELATIVE = DPATH_OUTPUT_RELATIVE / 'manifest_versions'
 
 COL_SUBJECT_IMAGING = 'Subject ID'
 COL_VISIT_IMAGING = 'Visit'
@@ -74,7 +76,8 @@ VISIT_SESSION_MAP = {
 }
 
 # manifest filename and columns
-FNAME_MANIFEST = 'mr_proc_manifest.csv'
+FNAME_MANIFEST = 'mr_proc_manifest.csv' # symlink
+PATTERN_MANIFEST_BACKUP = 'mr_proc_manifest-{}.csv'
 COL_SUBJECT_MANIFEST = 'participant_id'
 COL_VISIT_MANIFEST = 'visit'
 COL_SESSION_MANIFEST = 'session'
@@ -90,9 +93,9 @@ GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
 GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
 
 # flags
-FLAG_OVERWRITE = '--overwrite'
+FLAG_REGENERATE = '--regenerate'
 
-def run(global_config_file, imaging_filename, tabular_filenames, group_filename, overwrite=False):
+def run(global_config_file, imaging_filename, tabular_filenames, group_filename, dpath_backups_relative, regenerate):
 
     # parse global config
     with open(global_config_file) as file:
@@ -107,7 +110,14 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
     fpaths_tabular = [dpath_input / tabular_filename for tabular_filename in tabular_filenames]
     fpath_group = dpath_input / group_filename
     fpath_descriptions = Path(__file__).parent / FNAME_DESCRIPTIONS
-    fpath_manifest = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
+    fpath_manifest_symlink = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
+    fname_manifest_backup = PATTERN_MANIFEST_BACKUP.format(
+        datetime.datetime.now().strftime('%Y%m%d_%H%M')
+    )
+    fpath_manifest_backup = dpath_dataset / dpath_backups_relative / fname_manifest_backup
+    
+    # create backup directory if needed
+    fpath_manifest_backup.parent.mkdir(parents=True, exist_ok=True)
 
     # load data dfs and heuristics json
     df_imaging = pd.read_csv(fpath_imaging, dtype=str)
@@ -298,7 +308,6 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
     )
 
     # convert session to BIDS format
-    sessions_without_bids_prefix = df_manifest[COL_SESSION_MANIFEST].dropna().drop_duplicates()
     df_manifest[COL_SESSION_MANIFEST] = df_manifest[COL_SESSION_MANIFEST].apply(
         lambda session: session if pd.isna(session) else PATTERN_BIDS_SESSION.format(session)
     )
@@ -310,32 +319,34 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
     df_manifest = df_manifest[COLS_MANIFEST]
 
     # sort
-    df_manifest = df_manifest.sort_values([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST])
+    df_manifest = df_manifest.sort_values([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]).reset_index(drop=True)
 
     print(
         '\nCreated manifest:'
         f'\n{df_manifest}'
     )
 
-    if fpath_manifest.exists():
+    if fpath_manifest_symlink.exists():
 
         df_manifest_old = pd.read_csv(
-            fpath_manifest, 
+            fpath_manifest_symlink, 
             dtype={COL_SUBJECT_MANIFEST: str},
             converters={COL_DATATYPE_MANIFEST: pd.eval}
         )
+
         if df_manifest.equals(df_manifest_old):
             print(f'\nFound an existing manifest with exactly the same information, exiting')
             return
+        
+        fpath_manifest_symlink.unlink()
 
-        if not overwrite:
-            raise FileExistsError(f'File exists: {fpath_manifest}. Use {FLAG_OVERWRITE} to overwrite')
-
-    df_manifest.to_csv(fpath_manifest, index=False, header=True)
-    print(f'File written to: {fpath_manifest}')
+    df_manifest.to_csv(fpath_manifest_backup, index=False, header=True)
+    print(f'File written to: {fpath_manifest_backup}')
+    fpath_manifest_symlink.symlink_to(fpath_manifest_backup)
+    print(f'Created symlink: {fpath_manifest_symlink} -> {fpath_manifest_backup}')
 
     # set file permissions
-    os.chmod(fpath_manifest, 0o664)
+    os.chmod(fpath_manifest_backup, 0o664)
 
 def validate_visit_session_map(global_config):
     if len(set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(VISIT_SESSION_MAP.values())) > 0:
@@ -361,7 +372,7 @@ if __name__ == '__main__':
     Requires an imaging data availability info file that can be downloaded from 
     the LONI IDA, the PPMI participant status info files, as well as at least 
     one PPMI tabular file with subject and visit columns. 
-    All these files should be in [DATASET_ROOT]/{DPATH_INPUT_RELATIVE}.
+    All these files should be in <DATASET_ROOT>/{DPATH_INPUT_RELATIVE}.
     """
     parser = argparse.ArgumentParser(description=HELPTEXT)
     parser.add_argument(
@@ -383,8 +394,14 @@ if __name__ == '__main__':
               f' "{COL_SUBJECT_TABULAR}" and "{COL_GROUP_TABULAR}"'
               f' (default: {DEFAULT_GROUP_FILENAME})'))
     parser.add_argument(
-        FLAG_OVERWRITE, action='store_true',
-        help=(f'overwrite any existing {FNAME_MANIFEST} file')
+        '--backups', type=str, default=DEFAULT_DPATH_BACKUPS_RELATIVE,
+        help=('path to backups directory for storing different versions of the'
+              f' manifest, relative to <DATASET_ROOT> (default: {DEFAULT_DPATH_BACKUPS_RELATIVE})')
+    )
+    parser.add_argument(
+        FLAG_REGENERATE, action='store_true',
+        help=('regenerate entire manifest'
+              ' (default: only append rows for new subjects/sessions)'),
     )
     args = parser.parse_args()
 
@@ -393,6 +410,8 @@ if __name__ == '__main__':
     imaging_filename = args.imaging_filename
     tabular_filenames = args.tabular_filenames
     group_filename = args.group_filename
-    overwrite = getattr(args, FLAG_OVERWRITE.lstrip('-').lower())
+    dpath_backups = args.backups
+    regenerate = getattr(args, FLAG_REGENERATE.lstrip('-'))
 
-    run(global_config_file, imaging_filename, tabular_filenames, group_filename, overwrite=overwrite)
+    run(global_config_file, imaging_filename, tabular_filenames, group_filename, 
+        dpath_backups_relative=dpath_backups, regenerate=regenerate)
