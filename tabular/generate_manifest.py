@@ -4,6 +4,7 @@ import argparse
 import datetime
 import json
 import os
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -16,8 +17,10 @@ from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT,
 GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD', 'GenReg Unaff']
 
 # paths relative to DATASET_ROOT
-DPATH_INPUT_RELATIVE = Path('tabular', 'study_data')
-DPATH_OUTPUT_RELATIVE = Path('tabular')
+DPATH_TABULAR_RELATIVE = Path('tabular')
+DPATH_RELEASES_RELATIVE = Path('releases')
+DPATH_INPUT_RELATIVE = DPATH_TABULAR_RELATIVE / 'study_data'
+DPATH_OUTPUT_RELATIVE = DPATH_TABULAR_RELATIVE
 
 DEFAULT_IMAGING_FILENAME = 'idaSearch.csv'
 DEFAULT_TABULAR_FILENAMES = [
@@ -95,7 +98,7 @@ GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
 # flags
 FLAG_REGENERATE = '--regenerate'
 
-def run(global_config_file, imaging_filename, tabular_filenames, group_filename, dpath_backups_relative, regenerate):
+def run(global_config_file, imaging_filename, tabular_filenames, group_filename, dpath_backups_relative, regenerate, make_release):
 
     # parse global config
     with open(global_config_file) as file:
@@ -359,7 +362,9 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
     # do not write file if there are no changes from previous manifest
     if df_manifest_old is not None:
         if df_manifest.equals(df_manifest_old):
-            print(f'\nNo change from existing manifest, exiting')
+            print(f'\nNo change from existing manifest. Will not write new manifest')
+            if make_release:
+                make_new_release(dpath_dataset)
             return
         fpath_manifest_symlink.unlink()
 
@@ -375,6 +380,8 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
 
     # set file permissions
     os.chmod(fpath_manifest_backup, 0o664)
+
+    make_new_release(dpath_dataset)
 
 def validate_visit_session_map(global_config):
     if len(set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(VISIT_SESSION_MAP.values())) > 0:
@@ -392,6 +399,17 @@ def get_datatype_list(descriptions: pd.Series, description_datatype_map, seen=No
         seen.update(datatypes)
 
     return datatypes
+
+def make_new_release(dpath_dataset: Path):
+    date_str = datetime.datetime.now().strftime('%Y_%m_%d')
+    dpath_source = dpath_dataset / DPATH_TABULAR_RELATIVE
+    dpath_target = dpath_dataset / DPATH_RELEASES_RELATIVE / date_str
+
+    if dpath_target.exists():
+        raise FileExistsError(f'Release directory already exists: {dpath_target}')
+    
+    shutil.copytree(dpath_source, dpath_target, symlinks=True)
+    print(f'New release created: {dpath_target}')
 
 if __name__ == '__main__':
     # argparse
@@ -431,6 +449,11 @@ if __name__ == '__main__':
         help=('regenerate entire manifest'
               ' (default: only append rows for new subjects/sessions)'),
     )
+    parser.add_argument(
+        '--make_release', action='store_true',
+        help=(f'copy <DATASET_ROOT>/{DPATH_TABULAR_RELATIVE} to a'
+              f' release directory in <DATASET_ROOT>/{DPATH_RELEASES_RELATIVE}')
+    )
     args = parser.parse_args()
 
     # parse
@@ -439,7 +462,8 @@ if __name__ == '__main__':
     tabular_filenames = args.tabular_filenames
     group_filename = args.group_filename
     dpath_backups = args.backups
+    make_release = args.make_release
     regenerate = getattr(args, FLAG_REGENERATE.lstrip('-'))
 
     run(global_config_file, imaging_filename, tabular_filenames, group_filename, 
-        dpath_backups_relative=dpath_backups, regenerate=regenerate)
+        dpath_backups_relative=dpath_backups, regenerate=regenerate, make_release=make_release)
