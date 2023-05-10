@@ -98,7 +98,8 @@ GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
 # flags
 FLAG_REGENERATE = '--regenerate'
 
-def run(global_config_file, imaging_filename, tabular_filenames, group_filename, dpath_backups_relative, regenerate, make_release):
+def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[str], 
+        group_filename: str, dpath_backups_relative: str, regenerate: bool, make_release: bool):
 
     # parse global config
     with open(global_config_file) as file:
@@ -112,6 +113,7 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
     fpath_imaging = dpath_input / imaging_filename
     fpaths_tabular = [dpath_input / tabular_filename for tabular_filename in tabular_filenames]
     fpath_group = dpath_input / group_filename
+    fnames_keep_release = [imaging_filename, group_filename] + tabular_filenames # PPMI study files to keep
     fpath_descriptions = Path(__file__).parent / FNAME_DESCRIPTIONS
     fpath_manifest_symlink = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
     fname_manifest_backup = PATTERN_MANIFEST_BACKUP.format(
@@ -364,7 +366,7 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
         if df_manifest.equals(df_manifest_old):
             print(f'\nNo change from existing manifest. Will not write new manifest')
             if make_release:
-                make_new_release(dpath_dataset)
+                make_new_release(dpath_dataset, dpath_input, fnames_keep_release)
             return
         fpath_manifest_symlink.unlink()
 
@@ -381,7 +383,7 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
     # set file permissions
     os.chmod(fpath_manifest_backup, 0o664)
 
-    make_new_release(dpath_dataset)
+    make_new_release(dpath_dataset, dpath_input, fnames_keep_release)
 
 def validate_visit_session_map(global_config):
     if len(set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(VISIT_SESSION_MAP.values())) > 0:
@@ -400,7 +402,14 @@ def get_datatype_list(descriptions: pd.Series, description_datatype_map, seen=No
 
     return datatypes
 
-def make_new_release(dpath_dataset: Path):
+def make_new_release(dpath_dataset: Path, dpath_input: Path, fnames_keep: list[str]):
+
+    def ignore_func(dpath, fnames):
+        if Path(dpath).samefile(dpath_input):
+            return [fname for fname in fnames if fname not in fnames_keep]
+        else:
+            return []
+
     date_str = datetime.datetime.now().strftime('%Y_%m_%d')
     dpath_source = dpath_dataset / DPATH_TABULAR_RELATIVE
     dpath_target = dpath_dataset / DPATH_RELEASES_RELATIVE / date_str
@@ -408,8 +417,8 @@ def make_new_release(dpath_dataset: Path):
     if dpath_target.exists():
         raise FileExistsError(f'Release directory already exists: {dpath_target}')
     
-    shutil.copytree(dpath_source, dpath_target, symlinks=True)
-    print(f'New release created: {dpath_target}')
+    shutil.copytree(dpath_source, dpath_target, symlinks=True, ignore=ignore_func)
+    print(f'\nNew release created: {dpath_target}')
 
 if __name__ == '__main__':
     # argparse
@@ -440,7 +449,7 @@ if __name__ == '__main__':
               f' "{COL_SUBJECT_TABULAR}" and "{COL_GROUP_TABULAR}"'
               f' (default: {DEFAULT_GROUP_FILENAME})'))
     parser.add_argument(
-        '--backups', type=str, default=DEFAULT_DPATH_BACKUPS_RELATIVE,
+        '--backups', type=str, default=str(DEFAULT_DPATH_BACKUPS_RELATIVE),
         help=('path to backups directory for storing different versions of the'
               f' manifest, relative to <DATASET_ROOT> (default: {DEFAULT_DPATH_BACKUPS_RELATIVE})')
     )
