@@ -119,21 +119,15 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
     # create backup directory if needed
     fpath_manifest_backup.parent.mkdir(parents=True, exist_ok=True)
 
-    # load old manifest if it exists and if we are in append mode
+    # load old manifest if it exists
     if fpath_manifest_symlink.exists():
         df_manifest_old = pd.read_csv(
             fpath_manifest_symlink, 
             dtype={COL_SUBJECT_MANIFEST: str},
             converters={COL_DATATYPE_MANIFEST: pd.eval}
         )
-        subject_session_pairs_old = set(zip(
-            df_manifest_old[COL_SUBJECT_MANIFEST],
-            df_manifest_old[COL_SESSION_MANIFEST],
-        ))
-    # build new manifest from scratch
     else:
         df_manifest_old = None
-        subject_session_pairs_old = set()
 
     # load data dfs and heuristics json
     df_imaging = pd.read_csv(fpath_imaging, dtype=str)
@@ -335,8 +329,25 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
     df_manifest = df_manifest[COLS_MANIFEST]
 
     # only keep new subject/session pairs
+    # otherwise we build/rebuild the manifest from scratch
     if (not regenerate) or (df_manifest_old is None):
+
+        subject_session_pairs_old = pd.Index(zip(
+            df_manifest_old[COL_SUBJECT_MANIFEST],
+            df_manifest_old[COL_SESSION_MANIFEST],
+        ))
+
         df_manifest = df_manifest.set_index([COL_SUBJECT_MANIFEST, COL_SESSION_MANIFEST])
+
+        # error if new manifest loses subject-session pairs
+        df_manifest_deleted_rows = df_manifest_old.loc[~subject_session_pairs_old.isin(df_manifest.index)]
+        if len(df_manifest_deleted_rows) > 0:
+            raise RuntimeError(
+                'Some of the subject/session pairs in the old manifest do not'
+                ' seem to exist anymore:'
+                f'\n{df_manifest_deleted_rows}'
+                f'\nUse {FLAG_REGENERATE} to fully regenerate the manifest')
+
         df_manifest_new_rows = df_manifest.loc[~df_manifest.index.isin(subject_session_pairs_old)]
         df_manifest_new_rows = df_manifest_new_rows.reset_index()[COLS_MANIFEST]
         df_manifest = pd.concat([df_manifest_old, df_manifest_new_rows], axis='index')
@@ -345,12 +356,11 @@ def run(global_config_file, imaging_filename, tabular_filenames, group_filename,
     # sort
     df_manifest = df_manifest.sort_values([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]).reset_index(drop=True)
 
+    # do not write file if there are no changes from previous manifest
     if df_manifest_old is not None:
-
         if df_manifest.equals(df_manifest_old):
             print(f'\nNo change from existing manifest, exiting')
             return
-        
         fpath_manifest_symlink.unlink()
 
     print(
