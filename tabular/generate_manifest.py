@@ -13,7 +13,7 @@ import pandas as pd
 
 from tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
 from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
-from workflow.id_conversion import participant_id_to_bids_id, session_to_bids
+from workflow.utils import participant_id_to_bids_id, session_to_bids
 
 # subject groups to keep
 GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD', 'GenReg Unaff']
