@@ -336,7 +336,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
 
     # only keep new subject/session pairs
     # otherwise we build/rebuild the manifest from scratch
-    if (not regenerate) or (df_manifest_old is None):
+    if (not regenerate) and (df_manifest_old is not None):
 
         subject_session_pairs_old = pd.Index(zip(
             df_manifest_old[COL_SUBJECT_MANIFEST],
@@ -384,7 +384,8 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     # set file permissions
     os.chmod(fpath_manifest_backup, 0o664)
 
-    make_new_release(dpath_dataset, dpath_input, fnames_keep_release)
+    if make_release:
+        make_new_release(dpath_dataset, dpath_input, fnames_keep_release)
 
 def validate_visit_session_map(global_config):
     if len(set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(VISIT_SESSION_MAP.values())) > 0:
