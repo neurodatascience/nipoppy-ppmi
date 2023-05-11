@@ -5,6 +5,7 @@ import datetime
 import json
 import os
 import shutil
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -155,7 +156,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
             continue
         for description in descriptions:
             if description in description_datatype_map:
-                print(f'\nDescription {description} has more than one associated datatype')
+                warnings.warn(f'\nDescription {description} has more than one associated datatype\n')
             description_datatype_map[description] = datatype
 
     # ===== format imaging data =====
@@ -179,7 +180,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     # map visits to sessions
     missing_session_mappings = set(df_imaging[COL_VISIT_MANIFEST]) - set(VISIT_SESSION_MAP.keys())
     if len(missing_session_mappings) > 0:
-        print(f'\nMissing mapping(s) in VISIT_SESSION_MAP: {missing_session_mappings}')
+        warnings.warn(f'\nMissing mapping(s) in VISIT_SESSION_MAP: {missing_session_mappings}')
     df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].map(VISIT_SESSION_MAP)
 
     # map group to tabular data naming scheme
@@ -231,47 +232,46 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
             df_tabular.loc[idx, COL_GROUP_TABULAR] = group
 
         if df_tabular[COL_GROUP_TABULAR].isna().any():
-            print(
-                'Did not successfully fill in missing group values using imaging data'
+            warnings.warn(
+                '\nDid not successfully fill in missing group values using imaging data'
                 f'\n{df_tabular.loc[df_tabular[COL_GROUP_TABULAR].isna()]}')
 
         else:
-            print('\nSuccessfully filled in missing group values using imaging data')
+            print('Successfully filled in missing group values using imaging data')
 
     # ===== process imaging data =====
 
-    print(
-        '\nProcessing imaging data...'
-        f'\tShape: {df_imaging.shape}'
-        '\nSession counts:'
-        f'\n{df_imaging[COL_SESSION_MANIFEST].value_counts(dropna=False)}\n'
+    print(f'\nProcessing imaging data...\tShape: {df_imaging.shape}')
+    print('\nSession counts:'
+        f'\n{df_imaging[COL_SESSION_MANIFEST].value_counts(dropna=False)}'
     )
 
     # check if all expected sessions are present
     diff_sessions = set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(df_imaging[COL_SESSION_MANIFEST])
     if len(diff_sessions) != 0:
-        print(f'Did not encounter all sessions listed in global_config. Missing: {diff_sessions}')
+        warnings.warn(f'\nDid not encounter all sessions listed in global_config. Missing: {diff_sessions}')
 
     # only keep sessions that are listed in global_config
     n_img_before_session_drop = df_imaging.shape[0]
     df_imaging = df_imaging.loc[df_imaging[COL_SESSION_MANIFEST].isin(global_config[GLOBAL_CONFIG_SESSIONS])]
     print(
-        f'\n\tDropped {n_img_before_session_drop - df_imaging.shape[0]} imaging entries'
+        f'\nDropped {n_img_before_session_drop - df_imaging.shape[0]} imaging entries'
         f' because the session was not in {global_config[GLOBAL_CONFIG_SESSIONS]}'
-        '\nCohort composition:'
-        f'\n{df_imaging[COL_GROUP_TABULAR].value_counts(dropna=False)}\n'
+    )
+    print('\nCohort composition:'
+        f'\n{df_imaging[COL_GROUP_TABULAR].value_counts(dropna=False)}'
     )
 
     # check if all expected groups are present
     diff_groups = set(GROUPS_KEEP) - set(df_imaging[COL_GROUP_TABULAR])
     if len(diff_groups) != 0:
-        print(f'Did not encounter all groups listed in GROUPS_KEEP. Missing: {diff_groups}')
+        warnings.warn(f'\nDid not encounter all groups listed in GROUPS_KEEP. Missing: {diff_groups}')
 
     # only keep subjects in certain groups
     n_img_before_subject_drop = df_imaging.shape[0]
     df_imaging = df_imaging.loc[df_imaging[COL_GROUP_TABULAR].isin(GROUPS_KEEP)]
     print(
-        f'\n\tDropped {n_img_before_subject_drop - df_imaging.shape[0]} imaging entries'
+        f'\nDropped {n_img_before_subject_drop - df_imaging.shape[0]} imaging entries'
         f' because the subject\'s research group was not in {GROUPS_KEEP}'
     )
 
@@ -281,17 +281,18 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
         lambda descriptions: get_datatype_list(descriptions, description_datatype_map, seen=seen_datatypes)
     )
     df_imaging = df_imaging.reset_index()
-    print(f'\n\tFinal imaging dataframe shape: {df_imaging.shape}')
+    print(f'\nFinal imaging dataframe shape: {df_imaging.shape}')
 
     # check if all expected datatypes are present
     diff_datatypes = set(DATATYPES) - seen_datatypes
     if len(diff_datatypes) != 0:
-        print(f'Did not encounter all datatypes in datatype_descriptions_map. Missing: {diff_datatypes}')
+        warnings.warn(f'\nDid not encounter all datatypes in datatype_descriptions_map. Missing: {diff_datatypes}')
     
     print(
         '\nProcessing tabular data...'
         f'\tShape: {df_tabular.shape}'
-        '\nCohort composition:'
+    )
+    print('\nCohort composition:'
         f'\n{df_tabular[COL_GROUP_TABULAR].value_counts(dropna=False)}\n'
     )
 
@@ -299,7 +300,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     n_tab_before_subject_drop = df_tabular.shape[0]
     df_tabular = df_tabular.loc[df_tabular[COL_GROUP_TABULAR].isin(GROUPS_KEEP)]
     print(
-        f'\n\tDropped {n_tab_before_subject_drop - df_tabular.shape[0]} tabular entries'
+        f'\nDropped {n_tab_before_subject_drop - df_tabular.shape[0]} tabular entries'
         f' because the subject\'s research group was not in {GROUPS_KEEP}\n'
     )
 
@@ -312,9 +313,9 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     # warning if missing tabular information
     df_imaging_without_tabular = df_manifest.loc[df_manifest[key_merge] == 'right_only']
     if len(df_imaging_without_tabular) > 0:
-        print(
+        warnings.warn(
             '\nSome imaging entries have no corresponding tabular information'
-            f'{df_imaging_without_tabular}\n'
+            f'\n{df_imaging_without_tabular}'
         )
 
     # replace NA datatype by empty list
@@ -356,7 +357,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
         df_manifest_new_rows = df_manifest.loc[~df_manifest.index.isin(subject_session_pairs_old)]
         df_manifest_new_rows = df_manifest_new_rows.reset_index()[COLS_MANIFEST]
         df_manifest = pd.concat([df_manifest_old, df_manifest_new_rows], axis='index')
-        print(f'Added {len(df_manifest_new_rows)} rows to existing manifest')
+        print(f'\nAdded {len(df_manifest_new_rows)} rows to existing manifest')
 
     # sort
     df_manifest = df_manifest.sort_values([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]).reset_index(drop=True)
@@ -364,7 +365,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     # do not write file if there are no changes from previous manifest
     if df_manifest_old is not None:
         if df_manifest.equals(df_manifest_old):
-            print(f'\nNo change from existing manifest. Will not write new manifest')
+            print(f'\nNo change from existing manifest. Will not write new manifest.')
             if make_release:
                 make_new_release(dpath_dataset, dpath_input, fnames_keep_release)
             return
@@ -376,7 +377,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     )
 
     df_manifest.to_csv(fpath_manifest_backup, index=False, header=True)
-    print(f'File written to: {fpath_manifest_backup}')
+    print(f'\nFile written to: {fpath_manifest_backup}')
     fpath_manifest_symlink.symlink_to(fpath_manifest_backup)
     print(f'Created symlink: {fpath_manifest_symlink} -> {fpath_manifest_backup}')
 
@@ -419,6 +420,9 @@ def make_new_release(dpath_dataset: Path, dpath_input: Path, fnames_keep: list[s
     
     shutil.copytree(dpath_source, dpath_target, symlinks=True, ignore=ignore_func)
     print(f'\nNew release created: {dpath_target}')
+
+def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
+    return '%s:%s: %s: %s\n' % (filename, lineno, category.__name__, message)
 
 if __name__ == '__main__':
     # argparse
@@ -473,6 +477,8 @@ if __name__ == '__main__':
     dpath_backups = args.backups
     make_release = args.make_release
     regenerate = getattr(args, FLAG_REGENERATE.lstrip('-'))
+
+    warnings.formatwarning = warning_on_one_line
 
     run(global_config_file, imaging_filename, tabular_filenames, group_filename, 
         dpath_backups_relative=dpath_backups, regenerate=regenerate, make_release=make_release)
