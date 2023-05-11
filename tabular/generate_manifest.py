@@ -13,6 +13,7 @@ import pandas as pd
 
 from tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
 from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
+from workflow.id_conversion import participant_id_to_bids_id, session_to_bids
 
 # subject groups to keep
 GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD', 'GenReg Unaff']
@@ -83,14 +84,12 @@ VISIT_SESSION_MAP = {
 FNAME_MANIFEST = 'mr_proc_manifest.csv' # symlink
 PATTERN_MANIFEST_BACKUP = 'mr_proc_manifest-{}.csv'
 COL_SUBJECT_MANIFEST = 'participant_id'
+COL_BIDS_ID_MANIFEST = 'bids_id'
 COL_VISIT_MANIFEST = 'visit'
 COL_SESSION_MANIFEST = 'session'
 COL_DATATYPE_MANIFEST = 'datatype'
-COLS_MANIFEST = [COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST, 
+COLS_MANIFEST = [COL_SUBJECT_MANIFEST, COL_BIDS_ID_MANIFEST, COL_VISIT_MANIFEST, 
                  COL_SESSION_MANIFEST, COL_DATATYPE_MANIFEST]
-
-# BIDS format
-PATTERN_BIDS_SESSION = 'ses-{}'
 
 # global config keys
 GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
@@ -324,8 +323,14 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     )
 
     # convert session to BIDS format
-    df_manifest[COL_SESSION_MANIFEST] = df_manifest[COL_SESSION_MANIFEST].apply(
-        lambda session: session if pd.isna(session) else PATTERN_BIDS_SESSION.format(session)
+    with_imaging = ~df_manifest[COL_SESSION_MANIFEST].isna()
+    df_manifest.loc[with_imaging, COL_SESSION_MANIFEST] = df_manifest.loc[with_imaging, COL_SESSION_MANIFEST].apply(
+        session_to_bids,
+    )
+
+    # convert subject ID to BIDS format
+    df_manifest.loc[with_imaging, COL_BIDS_ID_MANIFEST] = df_manifest.loc[with_imaging, COL_SUBJECT_MANIFEST].apply(
+        participant_id_to_bids_id,
     )
 
     # populate other columns and select/reorder columns used in manifest
