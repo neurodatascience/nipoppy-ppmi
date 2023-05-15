@@ -3,7 +3,6 @@
 import argparse
 import datetime
 import json
-import os
 import shutil
 import warnings
 from pathlib import Path
@@ -13,7 +12,19 @@ import pandas as pd
 
 from tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
 from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
-from workflow.utils import participant_id_to_bids_id, session_to_bids
+from workflow.utils import (
+    COL_BIDS_ID_MANIFEST,
+    COL_DATATYPE_MANIFEST,
+    COL_SESSION_MANIFEST,
+    COL_SUBJECT_MANIFEST,
+    COL_VISIT_MANIFEST,
+    COLS_MANIFEST,
+    DNAME_BACKUPS_MANIFEST, 
+    FNAME_MANIFEST,
+    participant_id_to_bids_id,
+    save_backup, 
+    session_to_bids,
+)
 
 # subject groups to keep
 GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD', 'GenReg Unaff']
@@ -35,7 +46,6 @@ DEFAULT_TABULAR_FILENAMES = [
     'MDS-UPDRS_Part_IV__Motor_Complications.csv',
 ]
 DEFAULT_GROUP_FILENAME = 'Participant_Status.csv'
-DEFAULT_DPATH_BACKUPS_RELATIVE = DPATH_OUTPUT_RELATIVE / '.manifests'
 
 COL_SUBJECT_IMAGING = 'Subject ID'
 COL_VISIT_IMAGING = 'Visit'
@@ -80,17 +90,6 @@ VISIT_SESSION_MAP = {
     'R01': '3', # Month 6
 }
 
-# manifest filename and columns
-FNAME_MANIFEST = 'mr_proc_manifest.csv' # symlink
-PATTERN_MANIFEST_BACKUP = 'mr_proc_manifest-{}.csv'
-COL_SUBJECT_MANIFEST = 'participant_id'
-COL_BIDS_ID_MANIFEST = 'bids_id'
-COL_VISIT_MANIFEST = 'visit'
-COL_SESSION_MANIFEST = 'session'
-COL_DATATYPE_MANIFEST = 'datatype'
-COLS_MANIFEST = [COL_SUBJECT_MANIFEST, COL_BIDS_ID_MANIFEST, COL_VISIT_MANIFEST, 
-                 COL_SESSION_MANIFEST, COL_DATATYPE_MANIFEST]
-
 # global config keys
 GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
 GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
@@ -116,14 +115,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     fnames_keep_release = [imaging_filename, group_filename] + tabular_filenames # PPMI study files to keep
     fpath_descriptions = Path(__file__).parent / FNAME_DESCRIPTIONS
     fpath_manifest_symlink = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
-    fname_manifest_backup = PATTERN_MANIFEST_BACKUP.format(
-        datetime.datetime.now().strftime('%Y%m%d_%H%M')
-    )
-    fpath_manifest_backup = dpath_dataset / dpath_backups_relative / fname_manifest_backup
     
-    # create backup directory if needed
-    fpath_manifest_backup.parent.mkdir(parents=True, exist_ok=True)
-
     # load old manifest if it exists
     if fpath_manifest_symlink.exists():
         df_manifest_old = pd.read_csv(
@@ -333,11 +325,10 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
         participant_id_to_bids_id,
     )
 
-    # populate other columns and select/reorder columns used in manifest
+    # populate other columns
     for col in COLS_MANIFEST:
         if not (col in df_manifest.columns):
             df_manifest[col] = np.nan
-    df_manifest = df_manifest[COLS_MANIFEST]
 
     # only keep new subject/session pairs
     # otherwise we build/rebuild the manifest from scratch
@@ -364,7 +355,8 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
         df_manifest = pd.concat([df_manifest_old, df_manifest_new_rows], axis='index')
         print(f'\nAdded {len(df_manifest_new_rows)} rows to existing manifest')
 
-    # sort
+    # reorder columns and sort
+    df_manifest = df_manifest[COLS_MANIFEST]
     df_manifest = df_manifest.sort_values([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]).reset_index(drop=True)
 
     # do not write file if there are no changes from previous manifest
@@ -381,13 +373,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
         f'\n{df_manifest}'
     )
 
-    df_manifest.to_csv(fpath_manifest_backup, index=False, header=True)
-    print(f'\nFile written to: {fpath_manifest_backup}')
-    fpath_manifest_symlink.symlink_to(fpath_manifest_backup)
-    print(f'Created symlink: {fpath_manifest_symlink} -> {fpath_manifest_backup}')
-
-    # set file permissions
-    os.chmod(fpath_manifest_backup, 0o664)
+    save_backup(df_manifest, fpath_manifest_symlink, DNAME_BACKUPS_MANIFEST)
 
     if make_release:
         make_new_release(dpath_dataset, dpath_input, fnames_keep_release)
@@ -459,11 +445,6 @@ if __name__ == '__main__':
               f' "{COL_SUBJECT_TABULAR}" and "{COL_GROUP_TABULAR}"'
               f' (default: {DEFAULT_GROUP_FILENAME})'))
     parser.add_argument(
-        '--backups', type=str, default=str(DEFAULT_DPATH_BACKUPS_RELATIVE),
-        help=('path to backups directory for storing different versions of the'
-              f' manifest, relative to <DATASET_ROOT> (default: {DEFAULT_DPATH_BACKUPS_RELATIVE})')
-    )
-    parser.add_argument(
         FLAG_REGENERATE, action='store_true',
         help=('regenerate entire manifest'
               ' (default: only append rows for new subjects/sessions)'),
@@ -480,11 +461,10 @@ if __name__ == '__main__':
     imaging_filename = args.imaging_filename
     tabular_filenames = args.tabular_filenames
     group_filename = args.group_filename
-    dpath_backups = args.backups
     make_release = args.make_release
     regenerate = getattr(args, FLAG_REGENERATE.lstrip('-'))
 
     warnings.formatwarning = warning_on_one_line
 
     run(global_config_file, imaging_filename, tabular_filenames, group_filename, 
-        dpath_backups_relative=dpath_backups, regenerate=regenerate, make_release=make_release)
+        regenerate=regenerate, make_release=make_release)
