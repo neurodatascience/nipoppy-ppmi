@@ -21,6 +21,7 @@ from workflow.utils import (
     COLS_MANIFEST,
     DNAME_BACKUPS_MANIFEST, 
     FNAME_MANIFEST,
+    load_manifest,
     participant_id_to_bids_id,
     save_backup, 
     session_to_bids,
@@ -98,7 +99,7 @@ GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
 FLAG_REGENERATE = '--regenerate'
 
 def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[str], 
-        group_filename: str, dpath_backups_relative: str, regenerate: bool, make_release: bool):
+        group_filename: str, regenerate: bool, make_release: bool):
 
     # parse global config
     with open(global_config_file) as file:
@@ -118,16 +119,12 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     
     # load old manifest if it exists
     if fpath_manifest_symlink.exists():
-        df_manifest_old = pd.read_csv(
-            fpath_manifest_symlink, 
-            dtype={COL_SUBJECT_MANIFEST: str},
-            converters={COL_DATATYPE_MANIFEST: pd.eval}
-        )
+        df_manifest_old = load_manifest(fpath_manifest_symlink)
     else:
         df_manifest_old = None
 
     # load data dfs and heuristics json
-    df_imaging = pd.read_csv(fpath_imaging, dtype=str)
+    df_imaging = load_and_process_df_imaging(fpath_imaging)
     df_group = pd.read_csv(fpath_group, dtype=str)
     df_tabular = None
     for fpath_tabular in fpaths_tabular:
@@ -149,39 +146,6 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
             if description in description_datatype_map:
                 warnings.warn(f'\nDescription {description} has more than one associated datatype\n')
             description_datatype_map[description] = datatype
-
-    # ===== format imaging data =====
-
-    # rename columns
-    df_imaging = df_imaging.rename(columns={
-        COL_SUBJECT_IMAGING: COL_SUBJECT_MANIFEST,
-        COL_VISIT_IMAGING: COL_VISIT_MANIFEST,
-        COL_DESCRIPTION_IMAGING: COL_DATATYPE_MANIFEST,
-    })
-
-    # convert visits from imaging to tabular labels
-    try:
-        df_imaging[COL_VISIT_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].apply(
-            lambda visit: VISIT_IMAGING_MAP[visit]
-        )
-    except KeyError as ex:
-        raise RuntimeError(
-            f'Found visit without mapping in VISIT_IMAGING_MAP: {ex.args[0]}')
-
-    # map visits to sessions
-    missing_session_mappings = set(df_imaging[COL_VISIT_MANIFEST]) - set(VISIT_SESSION_MAP.keys())
-    if len(missing_session_mappings) > 0:
-        warnings.warn(f'\nMissing mapping(s) in VISIT_SESSION_MAP: {missing_session_mappings}')
-    df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].map(VISIT_SESSION_MAP)
-
-    # map group to tabular data naming scheme
-    try:
-        df_imaging[COL_GROUP_TABULAR] = df_imaging[COL_GROUP_IMAGING].apply(
-            lambda group: GROUP_IMAGING_MAP[group]
-        )
-    except KeyError as ex:
-        raise RuntimeError(
-            f'Found group without mapping in GROUP_IMAGING_MAP: {ex.args[0]}')
 
     # ===== format tabular data =====
 
@@ -383,6 +347,44 @@ def validate_visit_session_map(global_config):
         raise ValueError(
             f'Invalid VISIT_SESSION_MAP: {VISIT_SESSION_MAP}. Must have an entry'
             f' for each session in global_config: {global_config[GLOBAL_CONFIG_SESSIONS]}')
+
+def load_and_process_df_imaging(fpath_imaging):
+
+    # load
+    df_imaging = pd.read_csv(fpath_imaging, dtype=str)
+
+    # rename columns
+    df_imaging = df_imaging.rename(columns={
+        COL_SUBJECT_IMAGING: COL_SUBJECT_MANIFEST,
+        COL_VISIT_IMAGING: COL_VISIT_MANIFEST,
+        COL_DESCRIPTION_IMAGING: COL_DATATYPE_MANIFEST,
+    })
+
+    # convert visits from imaging to tabular labels
+    try:
+        df_imaging[COL_VISIT_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].apply(
+            lambda visit: VISIT_IMAGING_MAP[visit]
+        )
+    except KeyError as ex:
+        raise RuntimeError(
+            f'Found visit without mapping in VISIT_IMAGING_MAP: {ex.args[0]}')
+
+    # map visits to sessions
+    missing_session_mappings = set(df_imaging[COL_VISIT_MANIFEST]) - set(VISIT_SESSION_MAP.keys())
+    if len(missing_session_mappings) > 0:
+        warnings.warn(f'\nMissing mapping(s) in VISIT_SESSION_MAP: {missing_session_mappings}')
+    df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].map(VISIT_SESSION_MAP)
+
+    # map group to tabular data naming scheme
+    try:
+        df_imaging[COL_GROUP_TABULAR] = df_imaging[COL_GROUP_IMAGING].apply(
+            lambda group: GROUP_IMAGING_MAP[group]
+        )
+    except KeyError as ex:
+        raise RuntimeError(
+            f'Found group without mapping in GROUP_IMAGING_MAP: {ex.args[0]}')
+    
+    return df_imaging
 
 def get_datatype_list(descriptions: pd.Series, description_datatype_map, seen=None):
 
