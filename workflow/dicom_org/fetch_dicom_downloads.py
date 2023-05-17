@@ -182,8 +182,11 @@ def check_image_id(dpath_raw_dicom, subject, image_id):
 
 if __name__ == '__main__':
     # argparse
-    HELPTEXT = """
-    Script to copy dicom dumps into mr_proc scratch/raw_dicom dir
+    HELPTEXT = f"""
+    Find Image IDs for PPMI scans that have not been downloaded yet. Requires an imaging data availability
+    info file that can be downloaded from the LONI IDA (should be in <DATASET_ROOT>/{DPATH_STUDY_DATA_RELATIVE}),
+    the manifest for PPMI (DATASET_ROOT/{FPATH_MANIFEST_RELATIVE}), as well as the DICOM-to-BIDS conversion status file
+    (<DATASET_ROOT>/{FPATH_STATUS_RELATIVE}).
     """
     parser = argparse.ArgumentParser(description=HELPTEXT)
     parser.add_argument('--global_config', type=str, help='path to global config file for your mr_proc dataset', required=True)
