@@ -67,9 +67,9 @@ EXCLUDE_IN_ANAT = [
     'localizer',
     'AX GRE -MT REPEAT',
     '3 Plane Localizer',
-    # 'TRA',          # 55 slices in one dimension
-    # 'SAG',          # 55 slices in one dimension
-    # 'COR',          # 55 slices in one dimension
+    'TRA',          # 55 slices in one dimension
+    'SAG',          # 55 slices in one dimension
+    'COR',          # 55 slices in one dimension
     'LOCALIZER',
     '3 plane',
     '3 PLANE LOC',

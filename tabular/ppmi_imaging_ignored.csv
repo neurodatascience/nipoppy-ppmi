@@ -36,6 +36,7 @@ AXIAL 2D GRE-MT
 Anon
 Ax T1 FLAIR
 B0rf Map
+COR
 Cal Head 24
 Coronal
 DTI_FA
@@ -54,9 +55,11 @@ MPRAGE Phantom GRAPPA2
 NM - MT
 NM-GRE
 NM-MT
+SAG
 SAG SPGR
 SURVEY
 Sag T1 FLAIR
+TRA
 TRA/DUAL
 Transverse
 localizer
