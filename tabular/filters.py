@@ -89,7 +89,7 @@ EXCLUDE_IN_ANAT = [
     'Transverse',   # top/bottom of brain not complete
     'Coronal',      # front/back of brain not complete
 ]
-EXCLUDE_IN_ANAT_T1 = EXCLUDE_IN_ANAT + ['Ax 3D SWAN GRE straight']
+EXCLUDE_IN_ANAT_T1 = EXCLUDE_IN_ANAT + ['Ax 3D SWAN GRE straight', 'MRI BRAIN WO IVCON']
 REJECT_SUBSTRINGS_ANAT = ['2d', 'phantom'] + FILTERS[DATATYPE_DWI]['common_substrings'] + FILTERS[DATATYPE_FUNC]['common_substrings']
 FILTERS.update({
     DATATYPE_T1: {
