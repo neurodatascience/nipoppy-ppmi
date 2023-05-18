@@ -85,7 +85,6 @@ EXCLUDE_IN_ANAT = [
     # clipped
     'Transverse',   # top/bottom of brain not complete
     'Coronal',      # front/back of brain not complete
-    'SAG FSPGR 3D', # most/all are clipped and the contrast seems unusual (?)
 ]
 EXCLUDE_IN_ANAT_T1 = EXCLUDE_IN_ANAT + ['Ax 3D SWAN GRE straight']
 REJECT_SUBSTRINGS_ANAT = ['2d'] + FILTERS[DATATYPE_DWI]['common_substrings'] + FILTERS[DATATYPE_FUNC]['common_substrings']
