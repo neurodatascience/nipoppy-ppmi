@@ -37,7 +37,9 @@ DPATH_INPUT_RELATIVE = DPATH_TABULAR_RELATIVE / 'study_data'
 DPATH_OUTPUT_RELATIVE = DPATH_TABULAR_RELATIVE
 
 DEFAULT_IMAGING_FILENAME = 'idaSearch.csv'
-DEFAULT_TABULAR_FILENAMES = [
+DEFAULT_GROUP_FILENAME = 'Participant_Status.csv'
+
+TABULAR_FILENAMES = [
     'Age_at_visit.csv', 
     'Montreal_Cognitive_Assessment__MoCA_.csv',
     'MDS-UPDRS_Part_I.csv',
@@ -46,8 +48,6 @@ DEFAULT_TABULAR_FILENAMES = [
     'MDS-UPDRS_Part_III.csv',
     'MDS-UPDRS_Part_IV__Motor_Complications.csv',
 ]
-DEFAULT_GROUP_FILENAME = 'Participant_Status.csv'
-
 COL_SUBJECT_IMAGING = 'Subject ID'
 COL_VISIT_IMAGING = 'Visit'
 COL_GROUP_IMAGING = 'Research Group'
@@ -437,11 +437,6 @@ if __name__ == '__main__':
               f' "{COL_SUBJECT_IMAGING}", "{COL_VISIT_IMAGING}", "{COL_GROUP_IMAGING}", and "{COL_DESCRIPTION_IMAGING}"'
               f' (default: {DEFAULT_IMAGING_FILENAME})'))
     parser.add_argument(
-        '--tabular_filenames', type=str, nargs='+', default=DEFAULT_TABULAR_FILENAMES,
-        help=('name of files containing tabular data availability info, with columns'
-              f' "{COL_SUBJECT_TABULAR}" and "{COL_VISIT_TABULAR}"'
-              f' (default: {DEFAULT_TABULAR_FILENAMES if len(DEFAULT_TABULAR_FILENAMES) <= 5 else f"{len(DEFAULT_TABULAR_FILENAMES)} files"})'))
-    parser.add_argument(
         '--group_filename', type=str, default=DEFAULT_GROUP_FILENAME,
         help=('name of file containing participant group info, with columns'
               f' "{COL_SUBJECT_TABULAR}" and "{COL_GROUP_TABULAR}"'
@@ -461,10 +456,11 @@ if __name__ == '__main__':
     # parse
     global_config_file = args.global_config
     imaging_filename = args.imaging_filename
-    tabular_filenames = args.tabular_filenames
     group_filename = args.group_filename
     make_release = args.make_release
     regenerate = getattr(args, FLAG_REGENERATE.lstrip('-'))
+
+    tabular_filenames = TABULAR_FILENAMES
 
     warnings.formatwarning = warning_on_one_line
 
