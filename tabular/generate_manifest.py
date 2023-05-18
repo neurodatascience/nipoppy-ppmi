@@ -28,7 +28,7 @@ from workflow.utils import (
 )
 
 # subject groups to keep
-GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD', 'GenReg Unaff']
+GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD']
 
 # paths relative to DATASET_ROOT
 DPATH_TABULAR_RELATIVE = Path('tabular')
