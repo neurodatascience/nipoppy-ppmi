@@ -22,10 +22,12 @@ FILTERS = {
             'sT1W_3D_TFE', 
             'TRA/DUAL',     # SWI/FLAIR
             'MR',           # phantom subject
+            'DTI_FA',       # phantom (solar eclipse)
         ],
         'exclude_out': [
             'PPMI 2.0',
         ],
+        'reject_substrings': ['phantom'],
     },
     DATATYPE_FUNC: {
         'common_substrings': ['fmri', 'bold', 'rsmri'],
@@ -35,6 +37,7 @@ FILTERS = {
             '2D GRE_MT',    # 2D
             '2D GRE-MT',    # 2D
         ],
+        'reject_substrings': ['phantom'],
     },
     DATATYPE_ANAT: {
         'exclude_out': [
@@ -87,7 +90,7 @@ EXCLUDE_IN_ANAT = [
     'Coronal',      # front/back of brain not complete
 ]
 EXCLUDE_IN_ANAT_T1 = EXCLUDE_IN_ANAT + ['Ax 3D SWAN GRE straight']
-REJECT_SUBSTRINGS_ANAT = ['2d'] + FILTERS[DATATYPE_DWI]['common_substrings'] + FILTERS[DATATYPE_FUNC]['common_substrings']
+REJECT_SUBSTRINGS_ANAT = ['2d', 'phantom'] + FILTERS[DATATYPE_DWI]['common_substrings'] + FILTERS[DATATYPE_FUNC]['common_substrings']
 FILTERS.update({
     DATATYPE_T1: {
         'common_substrings': COMMON_SUBSTRINGS_ANAT_T1,

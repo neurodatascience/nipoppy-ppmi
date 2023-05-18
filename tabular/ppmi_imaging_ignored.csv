@@ -38,6 +38,9 @@ Ax T1 FLAIR
 B0rf Map
 Cal Head 24
 Coronal
+DTI_FA
+DTI_PHANTOM
+DTI_phantom
 DUAL_TSE
 Double_TSE
 Field_mapping
@@ -47,6 +50,7 @@ IsoADC
 LOCALIZER
 LOWER 2D GRE MT
 MIDLINE SAG LOC
+MPRAGE Phantom GRAPPA2
 NM - MT
 NM-GRE
 NM-MT
