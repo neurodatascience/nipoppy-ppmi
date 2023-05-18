@@ -57,6 +57,7 @@ EXCLUDE_IN_ANAT = [
     'NM-MT',
     'NM-GRE',
     # 2D
+    'ax t1 reformat',
     'AX GRE -MT',
     'AX DUAL_TSE',
     'DUAL_TSE',

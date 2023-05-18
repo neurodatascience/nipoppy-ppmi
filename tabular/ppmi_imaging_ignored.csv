@@ -62,5 +62,6 @@ Sag T1 FLAIR
 TRA
 TRA/DUAL
 Transverse
+ax t1 reformat
 localizer
 sag
