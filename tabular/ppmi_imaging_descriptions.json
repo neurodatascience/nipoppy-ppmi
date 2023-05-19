@@ -369,8 +369,6 @@
         "sT2W/PD_TSE",
         "t2 cor",
         "t2 weighted double echo",
-        "t2_tirm_tra_dark-fluid NO BLADE",
-        "t2_tirm_tra_dark-fluid_",
         "t2_tse_tra"
     ],
     "flair": [
@@ -652,8 +650,6 @@
         "t1_mpr_ns_sag_p2_iso",
         "t2 cor",
         "t2 weighted double echo",
-        "t2_tirm_tra_dark-fluid NO BLADE",
-        "t2_tirm_tra_dark-fluid_",
         "t2_tse_tra",
         "tra_T1_MPRAGE"
     ]

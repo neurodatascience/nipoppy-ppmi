@@ -2,8 +2,9 @@
 DATATYPE_DWI = 'dwi'        # BIDS standard
 DATATYPE_FUNC = 'func'
 DATATYPE_ANAT = 'anat'
-DATATYPE_T1 = 't1'          # not actually BIDS but useful for HeuDiConv
+DATATYPE_T1 = 't1'          # not actually BIDS but useful for HeuDiConv (+ 1-to-1 mapping to BIDS suffix)
 DATATYPE_T2 = 't2'
+DATATYPE_T2_STAR = 't2_star'
 DATATYPE_FLAIR = 'flair'
 
 # ========== FILTERS ==========
@@ -49,6 +50,7 @@ FILTERS = {
 # ----- ANAT (T1/T2/FLAIR) -----
 COMMON_SUBSTRINGS_ANAT_T1 = ['t1', 'mprage']
 COMMON_SUBSTRINGS_ANAT_T2 = ['t2']
+COMMON_SUBSTRINGS_ANAT_T2_STAR = ['t2_star', 't2*']
 COMMON_SUBSTRINGS_ANAT_FLAIR = ['flair']
 EXCLUDE_IN_ANAT = [
     # neuromelanin
@@ -86,6 +88,8 @@ EXCLUDE_IN_ANAT = [
     'Field_mapping',
     'GRE B0',
     'IsoADC',       # not anat
+    "t2_tirm_tra_dark-fluid NO BLADE",  # weird FLAIR
+    "t2_tirm_tra_dark-fluid_",          # weird FLAIR
     # clipped
     'Transverse',   # top/bottom of brain not complete
     'Coronal',      # front/back of brain not complete
