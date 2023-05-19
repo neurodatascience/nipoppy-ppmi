@@ -8,7 +8,7 @@ import pandas as pd
 
 from filters import (
     DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, 
-    DATATYPE_T1, DATATYPE_T2, DATATYPE_FLAIR,
+    DATATYPE_T1, DATATYPE_T2, DATATYPE_T2_STAR, DATATYPE_FLAIR,
     EXCLUDE_IN_ANAT, EXCLUDE_IN_ANAT_T1,
     FILTERS,
 )
@@ -34,9 +34,10 @@ DATATYPE_MODALITY_MAP = {
     DATATYPE_DWI: MODALITY_DWI,
     DATATYPE_FUNC: MODALITY_FUNC,
     DATATYPE_ANAT: MODALITY_ANAT,
-    DATATYPE_T1: MODALITY_ANAT,        # anat
-    DATATYPE_T2: MODALITY_ANAT,        # anat
-    DATATYPE_FLAIR: MODALITY_ANAT,     # anat
+    DATATYPE_T1: MODALITY_ANAT,         # anat
+    DATATYPE_T2: MODALITY_ANAT,         # anat
+    DATATYPE_T2_STAR: MODALITY_ANAT,    # anat
+    DATATYPE_FLAIR: MODALITY_ANAT,      # anat
 }
 
 
@@ -239,6 +240,16 @@ def run(global_config_file, imaging_filename, overwrite=False, indent=4):
         **FILTERS[DATATYPE_T2],
     )
 
+    # t2 star
+    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_T2_STAR}) =========='.upper())
+    descriptions[DATATYPE_T2_STAR] = filter_descriptions(
+        df=df_imaging,
+        datatype=DATATYPE_T2_STAR,
+        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_T1] + descriptions[DATATYPE_T2],
+        **FILTERS[DATATYPE_ANAT],
+        **FILTERS[DATATYPE_T2_STAR],
+    )
+
     # flair
     print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_FLAIR}) =========='.upper())
     descriptions[DATATYPE_FLAIR] = filter_descriptions(
@@ -249,9 +260,9 @@ def run(global_config_file, imaging_filename, overwrite=False, indent=4):
         **FILTERS[DATATYPE_FLAIR],
     )
 
-    # anat: T1 + T2 + FLAIR
+    # anat: T1 + T2 + T2* + FLAIR
     descriptions[DATATYPE_ANAT] = sorted(list(set(
-        descriptions[DATATYPE_T1] + descriptions[DATATYPE_T2] + descriptions[DATATYPE_FLAIR]
+        descriptions[DATATYPE_T1] + descriptions[DATATYPE_T2] + descriptions[DATATYPE_T2_STAR] + descriptions[DATATYPE_FLAIR]
     )))
 
     print(f'\nFINAL DESCRIPTIONS:')

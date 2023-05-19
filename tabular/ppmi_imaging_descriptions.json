@@ -322,7 +322,6 @@
     "t2": [
         "*AX FSE T2",
         "*Ax T2 FSE",
-        "3-pl T2* FGRE",
         "AX PD + T2",
         "AX T2",
         "AX T2 AC-PC LINE ENTIRE BRAIN",
@@ -335,14 +334,12 @@
         "AXIAL PD+T2 TSE",
         "AXIAL PD-T2 TSE",
         "AXIAL PD-T2 TSE FS",
-        "AXIAL_T2_STAR",
         "Ax 3D SWAN GRE straight",
         "Ax FSE T2",
         "Ax PD /T2",
         "Ax T2 FSE",
         "Ax T2 FSE with Fat Sat",
         "Ax T2 Fse thin ac-pc",
-        "Ax T2* GRE",
         "Axial PD-T2 TSE",
         "Axial PD-T2 TSE FS",
         "Axial PD-T2 TSE_AC PC line",
@@ -370,6 +367,11 @@
         "t2 cor",
         "t2 weighted double echo",
         "t2_tse_tra"
+    ],
+    "t2_star": [
+        "3-pl T2* FGRE",
+        "AXIAL_T2_STAR",
+        "Ax T2* GRE"
     ],
     "flair": [
         "3D FLAIR",
