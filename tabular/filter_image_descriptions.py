@@ -41,6 +41,114 @@ DATATYPE_MODALITY_MAP = {
 }
 
 
+def run(global_config_file, imaging_filename, overwrite=False, indent=4):
+
+    # parse global config
+    with open(global_config_file) as file:
+        global_config = json.load(file)
+    dpath_dataset = Path(global_config[GLOBAL_CONFIG_DATASET_ROOT])
+
+    # generate filepaths
+    dpath_input = dpath_dataset / DPATH_INPUT_RELATIVE
+    dpath_out = Path(__file__).parent
+    fpath_imaging = dpath_input / imaging_filename
+    fpath_out_descriptions = dpath_out / FNAME_DESCRIPTIONS
+    fpath_out_ignored = dpath_out / FNAME_IGNORED
+
+    # load df
+    df_imaging = pd.read_csv(fpath_imaging)
+    descriptions = {}
+
+    # dwi
+    print(f'========== {DATATYPE_DWI} =========='.upper())
+    descriptions[DATATYPE_DWI] = filter_descriptions(
+        df=df_imaging,
+        datatype=DATATYPE_DWI,
+        **FILTERS[DATATYPE_DWI],
+    )
+
+    # func
+    print(f'\n========== {DATATYPE_FUNC} =========='.upper())
+    descriptions[DATATYPE_FUNC] = filter_descriptions(
+        df=df_imaging,
+        datatype=DATATYPE_FUNC,
+        **FILTERS[DATATYPE_FUNC],
+    )
+
+    # anat (dictionary with image subtypes)
+    descriptions[DATATYPE_ANAT] = {}
+
+    # t1
+    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_T1}) =========='.upper())
+    descriptions[DATATYPE_ANAT][DATATYPE_T1] = filter_descriptions(
+        df=df_imaging,
+        datatype=DATATYPE_T1,
+        exclude_in=EXCLUDE_IN_ANAT_T1,
+        **FILTERS[DATATYPE_ANAT],
+        **FILTERS[DATATYPE_T1],
+    )
+
+    # t2
+    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_T2}) =========='.upper())
+    descriptions[DATATYPE_ANAT][DATATYPE_T2] = filter_descriptions(
+        df=df_imaging,
+        datatype=DATATYPE_T2,
+        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_ANAT][DATATYPE_T1],
+        **FILTERS[DATATYPE_ANAT],
+        **FILTERS[DATATYPE_T2],
+    )
+
+    # t2 star
+    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_T2_STAR}) =========='.upper())
+    descriptions[DATATYPE_ANAT][DATATYPE_T2_STAR] = filter_descriptions(
+        df=df_imaging,
+        datatype=DATATYPE_T2_STAR,
+        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_ANAT][DATATYPE_T1] + descriptions[DATATYPE_ANAT][DATATYPE_T2],
+        **FILTERS[DATATYPE_ANAT],
+        **FILTERS[DATATYPE_T2_STAR],
+    )
+
+    # flair
+    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_FLAIR}) =========='.upper())
+    descriptions[DATATYPE_ANAT][DATATYPE_FLAIR] = filter_descriptions(
+        df=df_imaging,
+        datatype=DATATYPE_FLAIR,
+        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_ANAT][DATATYPE_T1] + descriptions[DATATYPE_ANAT][DATATYPE_T2],
+        **FILTERS[DATATYPE_ANAT],
+        **FILTERS[DATATYPE_FLAIR],
+    )
+
+    # # anat: T1 + T2 + T2* + FLAIR
+    # descriptions[DATATYPE_ANAT] = sorted(list(set(
+    #     descriptions[DATATYPE_T1] + descriptions[DATATYPE_T2] + descriptions[DATATYPE_T2_STAR] + descriptions[DATATYPE_FLAIR]
+    # )))
+
+    print(f'\nFINAL DESCRIPTIONS:')
+    # descriptions_all = []
+    # for datatype, datatype_descriptions in descriptions.items():
+    #     descriptions_all.extend(datatype_descriptions)
+    #     print(f'{datatype}:\t{len(datatype_descriptions)}')
+    descriptions_all = get_all_descriptions(descriptions, verbose=True)
+
+    # check if output file already exists
+    for fpath in [fpath_out_descriptions, fpath_out_ignored]:
+        if fpath.exists() and not overwrite:
+            raise FileExistsError(f'File exists: {fpath}. Use {FLAG_OVERWRITE} to overwrite')
+
+    # save
+    with fpath_out_descriptions.open('w') as file_out:
+        json.dump(descriptions, file_out, indent=indent)
+    print(f'JSON file with datatype-descriptions mapping written to: {fpath_out_descriptions}')
+
+    # save another file with all images that didn't make it in any datatype
+    df_ignored: pd.DataFrame = df_imaging.loc[
+        ~df_imaging[COL_DESCRIPTION].isin(descriptions_all),
+        COL_DESCRIPTION,
+    ].drop_duplicates().sort_values()
+    df_ignored.to_csv(fpath_out_ignored, index=False)
+    print(f'Ignored descriptions written to: {fpath_out_ignored}')
+
+
 def filter_descriptions(
         df: pd.DataFrame, 
         datatype, 
@@ -186,108 +294,22 @@ def filter_descriptions(
     return descriptions
 
 
-def run(global_config_file, imaging_filename, overwrite=False, indent=4):
+def get_all_descriptions(descriptions_dict, verbose=False):
+    
+    def _get_all_descriptions(descriptions_dict_or_list, descriptions, print_prefix):
+        if isinstance(descriptions_dict_or_list, dict):
+            for key, descriptions_subdict_or_list in descriptions_dict_or_list.items():
+                if verbose:
+                    print(f'{print_prefix}{key}:', end='')
+                descriptions = _get_all_descriptions(descriptions_subdict_or_list, descriptions, f'\t{print_prefix}')
+        else:
+            if verbose:
+                print(f' {len(descriptions_dict_or_list)}')
+            descriptions.extend(descriptions_dict_or_list)
+        return descriptions
 
-    # parse global config
-    with open(global_config_file) as file:
-        global_config = json.load(file)
-    dpath_dataset = Path(global_config[GLOBAL_CONFIG_DATASET_ROOT])
+    return _get_all_descriptions(descriptions_dict, [], '')
 
-    # generate filepaths
-    dpath_input = dpath_dataset / DPATH_INPUT_RELATIVE
-    dpath_out = Path(__file__).parent
-    fpath_imaging = dpath_input / imaging_filename
-    fpath_out_descriptions = dpath_out / FNAME_DESCRIPTIONS
-    fpath_out_ignored = dpath_out / FNAME_IGNORED
-
-    # load df
-    df_imaging = pd.read_csv(fpath_imaging)
-    descriptions = {}
-
-    # dwi
-    print(f'========== {DATATYPE_DWI} =========='.upper())
-    descriptions[DATATYPE_DWI] = filter_descriptions(
-        df=df_imaging,
-        datatype=DATATYPE_DWI,
-        **FILTERS[DATATYPE_DWI],
-    )
-
-    # func
-    print(f'\n========== {DATATYPE_FUNC} =========='.upper())
-    descriptions[DATATYPE_FUNC] = filter_descriptions(
-        df=df_imaging,
-        datatype=DATATYPE_FUNC,
-        **FILTERS[DATATYPE_FUNC],
-    )
-
-    # t1
-    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_T1}) =========='.upper())
-    descriptions[DATATYPE_T1] = filter_descriptions(
-        df=df_imaging,
-        datatype=DATATYPE_T1,
-        exclude_in=EXCLUDE_IN_ANAT_T1,
-        **FILTERS[DATATYPE_ANAT],
-        **FILTERS[DATATYPE_T1],
-    )
-
-    # t2
-    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_T2}) =========='.upper())
-    descriptions[DATATYPE_T2] = filter_descriptions(
-        df=df_imaging,
-        datatype=DATATYPE_T2,
-        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_T1],
-        **FILTERS[DATATYPE_ANAT],
-        **FILTERS[DATATYPE_T2],
-    )
-
-    # t2 star
-    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_T2_STAR}) =========='.upper())
-    descriptions[DATATYPE_T2_STAR] = filter_descriptions(
-        df=df_imaging,
-        datatype=DATATYPE_T2_STAR,
-        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_T1] + descriptions[DATATYPE_T2],
-        **FILTERS[DATATYPE_ANAT],
-        **FILTERS[DATATYPE_T2_STAR],
-    )
-
-    # flair
-    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_FLAIR}) =========='.upper())
-    descriptions[DATATYPE_FLAIR] = filter_descriptions(
-        df=df_imaging,
-        datatype=DATATYPE_FLAIR,
-        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_T1] + descriptions[DATATYPE_T2],
-        **FILTERS[DATATYPE_ANAT],
-        **FILTERS[DATATYPE_FLAIR],
-    )
-
-    # anat: T1 + T2 + T2* + FLAIR
-    descriptions[DATATYPE_ANAT] = sorted(list(set(
-        descriptions[DATATYPE_T1] + descriptions[DATATYPE_T2] + descriptions[DATATYPE_T2_STAR] + descriptions[DATATYPE_FLAIR]
-    )))
-
-    print(f'\nFINAL DESCRIPTIONS:')
-    descriptions_all = []
-    for datatype, datatype_descriptions in descriptions.items():
-        descriptions_all.extend(datatype_descriptions)
-        print(f'{datatype}:\t{len(datatype_descriptions)}')
-
-    # check if output file already exists
-    for fpath in [fpath_out_descriptions, fpath_out_ignored]:
-        if fpath.exists() and not overwrite:
-            raise FileExistsError(f'File exists: {fpath}. Use {FLAG_OVERWRITE} to overwrite')
-
-    # save
-    with fpath_out_descriptions.open('w') as file_out:
-        json.dump(descriptions, file_out, indent=indent)
-    print(f'JSON file with datatype-descriptions mapping written to: {fpath_out_descriptions}')
-
-    # save another file with all images that didn't make it in any datatype
-    df_ignored: pd.DataFrame = df_imaging.loc[
-        ~df_imaging[COL_DESCRIPTION].isin(descriptions_all),
-        COL_DESCRIPTION,
-    ].drop_duplicates().sort_values()
-    df_ignored.to_csv(fpath_out_ignored, index=False)
-    print(f'Ignored descriptions written to: {fpath_out_ignored}')
 
 if __name__ == '__main__':
     # argparse

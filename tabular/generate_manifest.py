@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
-from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
+from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, get_all_descriptions
 from workflow.utils import (
     COL_BIDS_ID_MANIFEST,
     COL_DATATYPE_MANIFEST,
@@ -139,13 +139,13 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     
     # reverse the mapping
     description_datatype_map = {}
-    for datatype, descriptions in datatype_descriptions_map.items():
-        if datatype not in DATATYPES:
-            continue
+    for datatype in DATATYPES:
+        descriptions = get_all_descriptions(datatype_descriptions_map[datatype])
         for description in descriptions:
             if description in description_datatype_map:
-                warnings.warn(f'\nDescription {description} has more than one associated datatype\n')
-            description_datatype_map[description] = datatype
+                warnings.warn(f'\nDescription {description} has more than one associated datatype, using "{description_datatype_map[description]}"\n')
+            else:
+                description_datatype_map[description] = datatype
 
     # ===== format tabular data =====
 
