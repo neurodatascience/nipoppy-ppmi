@@ -49,15 +49,10 @@ FILTERS = {
 }
 # ----- ANAT (T1/T2/FLAIR) -----
 COMMON_SUBSTRINGS_ANAT_T1 = ['t1', 'mprage']
-COMMON_SUBSTRINGS_ANAT_T2 = ['t2']
+COMMON_SUBSTRINGS_ANAT_T2 = ['t2', 'nm'] # including neuromelanin in T2
 COMMON_SUBSTRINGS_ANAT_T2_STAR = ['t2_star', 't2\*']
 COMMON_SUBSTRINGS_ANAT_FLAIR = ['flair']
 EXCLUDE_IN_ANAT = [
-    # neuromelanin
-    'NM - MT',
-    '2 NM-GRE',
-    'NM-MT',
-    'NM-GRE',
     # 2D
     'ax t1 reformat',
     'AX GRE -MT',
