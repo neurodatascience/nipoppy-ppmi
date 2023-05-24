@@ -24,7 +24,7 @@ from workflow.utils import (
     load_manifest,
     participant_id_to_bids_id,
     save_backup, 
-    session_to_bids,
+    session_id_to_bids_session,
 )
 
 # subject groups to keep
@@ -281,7 +281,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     # convert session to BIDS format
     with_imaging = ~df_manifest[COL_SESSION_MANIFEST].isna()
     df_manifest.loc[with_imaging, COL_SESSION_MANIFEST] = df_manifest.loc[with_imaging, COL_SESSION_MANIFEST].apply(
-        session_to_bids,
+        session_id_to_bids_session,
     )
 
     # convert subject ID to BIDS format
