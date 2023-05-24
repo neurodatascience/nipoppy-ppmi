@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from filters import (
+from tabular.filters import (
     DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, 
     DATATYPE_T1, DATATYPE_T2, DATATYPE_T2_STAR, DATATYPE_FLAIR,
     EXCLUDE_IN_ANAT, EXCLUDE_IN_ANAT_T1,
