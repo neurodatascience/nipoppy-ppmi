@@ -208,7 +208,7 @@
         "rsmriRL"
     ],
     "anat": {
-        "t1": [
+        "T1w": [
             "3D  T1w",
             "3D  T1w,",
             "3D SAG",
@@ -320,7 +320,7 @@
             "t1_mpr_ns_sag_p2_iso",
             "tra_T1_MPRAGE"
         ],
-        "t2": [
+        "T2w": [
             "*AX FSE T2",
             "*Ax T2 FSE",
             "2 NM-GRE",
@@ -373,12 +373,12 @@
             "t2 weighted double echo",
             "t2_tse_tra"
         ],
-        "t2_star": [
+        "T1starw": [
             "3-pl T2* FGRE",
             "AXIAL_T2_STAR",
             "Ax T2* GRE"
         ],
-        "flair": [
+        "FLAIR": [
             "3D FLAIR",
             "3D FLAIR SPACE",
             "3D SAG FLAIR",

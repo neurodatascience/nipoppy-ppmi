@@ -2,10 +2,10 @@
 DATATYPE_DWI = 'dwi'        # BIDS standard
 DATATYPE_FUNC = 'func'
 DATATYPE_ANAT = 'anat'
-DATATYPE_T1 = 't1'          # not actually BIDS but useful for HeuDiConv (+ 1-to-1 mapping to BIDS suffix)
-DATATYPE_T2 = 't2'
-DATATYPE_T2_STAR = 't2_star'
-DATATYPE_FLAIR = 'flair'
+SUFFIX_T1 = 'T1w'           # BIDS standard (file suffix)
+SUFFIX_T2 = 'T2w'
+SUFFIX_T2_STAR = 'T1starw'
+SUFFIX_FLAIR = 'FLAIR'
 
 # ========== FILTERS ==========
 # Heuristics for assigning a datatype based on image description
@@ -92,20 +92,20 @@ EXCLUDE_IN_ANAT = [
 EXCLUDE_IN_ANAT_T1 = EXCLUDE_IN_ANAT + ['Ax 3D SWAN GRE straight', 'MRI BRAIN WO IVCON']
 REJECT_SUBSTRINGS_ANAT = ['2d', 'phantom'] + FILTERS[DATATYPE_DWI]['common_substrings'] + FILTERS[DATATYPE_FUNC]['common_substrings']
 FILTERS.update({
-    DATATYPE_T1: {
+    SUFFIX_T1: {
         'common_substrings': COMMON_SUBSTRINGS_ANAT_T1,
         'reject_substrings': REJECT_SUBSTRINGS_ANAT + COMMON_SUBSTRINGS_ANAT_T2 + COMMON_SUBSTRINGS_ANAT_T2_STAR + COMMON_SUBSTRINGS_ANAT_FLAIR,
         'reject_substrings_exceptions': ['T1 REPEAT2'], # contains 'T2'
     },
-    DATATYPE_T2: {
+    SUFFIX_T2: {
         'common_substrings': COMMON_SUBSTRINGS_ANAT_T2,
         'reject_substrings': REJECT_SUBSTRINGS_ANAT + COMMON_SUBSTRINGS_ANAT_T1 + COMMON_SUBSTRINGS_ANAT_T2_STAR + COMMON_SUBSTRINGS_ANAT_FLAIR,
     },
-    DATATYPE_T2_STAR: {
+    SUFFIX_T2_STAR: {
         'common_substrings': COMMON_SUBSTRINGS_ANAT_T2_STAR,
         'reject_substrings': REJECT_SUBSTRINGS_ANAT + COMMON_SUBSTRINGS_ANAT_T1 + COMMON_SUBSTRINGS_ANAT_FLAIR,
     },
-    DATATYPE_FLAIR: {
+    SUFFIX_FLAIR: {
         'common_substrings': COMMON_SUBSTRINGS_ANAT_FLAIR,
         'reject_substrings': REJECT_SUBSTRINGS_ANAT + COMMON_SUBSTRINGS_ANAT_T1 + COMMON_SUBSTRINGS_ANAT_T2_STAR,
     }

@@ -8,7 +8,7 @@ import pandas as pd
 
 from tabular.filters import (
     DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, 
-    DATATYPE_T1, DATATYPE_T2, DATATYPE_T2_STAR, DATATYPE_FLAIR,
+    SUFFIX_T1, SUFFIX_T2, SUFFIX_T2_STAR, SUFFIX_FLAIR,
     EXCLUDE_IN_ANAT, EXCLUDE_IN_ANAT_T1,
     FILTERS,
 )
@@ -34,10 +34,10 @@ DATATYPE_MODALITY_MAP = {
     DATATYPE_DWI: MODALITY_DWI,
     DATATYPE_FUNC: MODALITY_FUNC,
     DATATYPE_ANAT: MODALITY_ANAT,
-    DATATYPE_T1: MODALITY_ANAT,         # anat
-    DATATYPE_T2: MODALITY_ANAT,         # anat
-    DATATYPE_T2_STAR: MODALITY_ANAT,    # anat
-    DATATYPE_FLAIR: MODALITY_ANAT,      # anat
+    SUFFIX_T1: MODALITY_ANAT,         # anat
+    SUFFIX_T2: MODALITY_ANAT,         # anat
+    SUFFIX_T2_STAR: MODALITY_ANAT,    # anat
+    SUFFIX_FLAIR: MODALITY_ANAT,      # anat
 }
 
 
@@ -79,48 +79,48 @@ def run(global_config_file, imaging_filename, overwrite=False, indent=4):
     descriptions[DATATYPE_ANAT] = {}
 
     # t1
-    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_T1}) =========='.upper())
-    descriptions[DATATYPE_ANAT][DATATYPE_T1] = filter_descriptions(
+    print(f'\n========== {DATATYPE_ANAT} ({SUFFIX_T1}) =========='.upper())
+    descriptions[DATATYPE_ANAT][SUFFIX_T1] = filter_descriptions(
         df=df_imaging,
-        datatype=DATATYPE_T1,
+        datatype=SUFFIX_T1,
         exclude_in=EXCLUDE_IN_ANAT_T1,
         **FILTERS[DATATYPE_ANAT],
-        **FILTERS[DATATYPE_T1],
+        **FILTERS[SUFFIX_T1],
     )
 
     # t2
-    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_T2}) =========='.upper())
-    descriptions[DATATYPE_ANAT][DATATYPE_T2] = filter_descriptions(
+    print(f'\n========== {DATATYPE_ANAT} ({SUFFIX_T2}) =========='.upper())
+    descriptions[DATATYPE_ANAT][SUFFIX_T2] = filter_descriptions(
         df=df_imaging,
-        datatype=DATATYPE_T2,
-        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_ANAT][DATATYPE_T1],
+        datatype=SUFFIX_T2,
+        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_ANAT][SUFFIX_T1],
         **FILTERS[DATATYPE_ANAT],
-        **FILTERS[DATATYPE_T2],
+        **FILTERS[SUFFIX_T2],
     )
 
     # t2 star
-    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_T2_STAR}) =========='.upper())
-    descriptions[DATATYPE_ANAT][DATATYPE_T2_STAR] = filter_descriptions(
+    print(f'\n========== {DATATYPE_ANAT} ({SUFFIX_T2_STAR}) =========='.upper())
+    descriptions[DATATYPE_ANAT][SUFFIX_T2_STAR] = filter_descriptions(
         df=df_imaging,
-        datatype=DATATYPE_T2_STAR,
-        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_ANAT][DATATYPE_T1] + descriptions[DATATYPE_ANAT][DATATYPE_T2],
+        datatype=SUFFIX_T2_STAR,
+        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_ANAT][SUFFIX_T1] + descriptions[DATATYPE_ANAT][SUFFIX_T2],
         **FILTERS[DATATYPE_ANAT],
-        **FILTERS[DATATYPE_T2_STAR],
+        **FILTERS[SUFFIX_T2_STAR],
     )
 
     # flair
-    print(f'\n========== {DATATYPE_ANAT} ({DATATYPE_FLAIR}) =========='.upper())
-    descriptions[DATATYPE_ANAT][DATATYPE_FLAIR] = filter_descriptions(
+    print(f'\n========== {DATATYPE_ANAT} ({SUFFIX_FLAIR}) =========='.upper())
+    descriptions[DATATYPE_ANAT][SUFFIX_FLAIR] = filter_descriptions(
         df=df_imaging,
-        datatype=DATATYPE_FLAIR,
-        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_ANAT][DATATYPE_T1] + descriptions[DATATYPE_ANAT][DATATYPE_T2],
+        datatype=SUFFIX_FLAIR,
+        exclude_in=EXCLUDE_IN_ANAT + descriptions[DATATYPE_ANAT][SUFFIX_T1] + descriptions[DATATYPE_ANAT][SUFFIX_T2],
         **FILTERS[DATATYPE_ANAT],
-        **FILTERS[DATATYPE_FLAIR],
+        **FILTERS[SUFFIX_FLAIR],
     )
 
     # # anat: T1 + T2 + T2* + FLAIR
     # descriptions[DATATYPE_ANAT] = sorted(list(set(
-    #     descriptions[DATATYPE_T1] + descriptions[DATATYPE_T2] + descriptions[DATATYPE_T2_STAR] + descriptions[DATATYPE_FLAIR]
+    #     descriptions[SUFFIX_T1] + descriptions[SUFFIX_T2] + descriptions[SUFFIX_T2_STAR] + descriptions[SUFFIX_FLAIR]
     # )))
 
     print(f'\nFINAL DESCRIPTIONS:')
