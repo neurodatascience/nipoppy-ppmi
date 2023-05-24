@@ -34,12 +34,13 @@ from workflow.utils import (
     FNAME_STATUS,
     load_status,
     save_backup,
-    session_to_bids,
+    session_id_to_bids_session,
 )
 
 # default command-line arguments
 DEFAULT_DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
 DEFAULT_N_JOBS = 4
+DEFAULT_CHUNK_SIZE = 500
 
 # imaging dataframe
 COL_IMAGE_ID = 'Image ID'
@@ -53,9 +54,9 @@ FPATH_MANIFEST_RELATIVE = DPATH_TABULAR_RELATIVE / FNAME_MANIFEST
 FPATH_STATUS_RELATIVE = DPATH_RAW_DICOM_RELATIVE / FNAME_STATUS
 FPATH_LOGS_RELATIVE = Path('scratch', 'logs', 'fetch_dicom_downloads.log')
 
-def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, logger=None):
+def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk_size=None, logger=None):
 
-    session_id = session_to_bids(session_id)
+    session_id = session_id_to_bids_session(session_id)
 
     # parse global config
     with open(fpath_global_config) as file:
@@ -74,6 +75,7 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, logge
         f'\nn_jobs: {n_jobs}'
         f'\nfname_imaging: {fname_imaging}'
         f'\ndatatypes: {datatypes}'
+        f'\nchunk_size: {chunk_size}'
         f'\ndpath_dataset: {dpath_dataset}'
         '\n'
     )
@@ -84,7 +86,7 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, logge
     # load imaging data
     fpath_imaging = dpath_dataset / DPATH_STUDY_DATA_RELATIVE / fname_imaging
     df_imaging = load_and_process_df_imaging(fpath_imaging)
-    df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_SESSION_MANIFEST].apply(session_to_bids)
+    df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_SESSION_MANIFEST].apply(session_id_to_bids_session)
 
     # load status data
     fpath_status = dpath_dataset / FPATH_STATUS_RELATIVE
@@ -162,17 +164,38 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, logge
         '\n'
     )
 
-    # dump image ID list
-    image_ids_to_download = df_imaging_to_check.loc[~df_imaging_to_check[COL_DOWNLOAD_STATUS], COL_IMAGE_ID].to_list() # TODO
+    # get images to download
+    image_ids_to_download = df_imaging_to_check.loc[~df_imaging_to_check[COL_DOWNLOAD_STATUS], COL_IMAGE_ID].to_list()
+
+    # output a single chunk if no size is specified
+    if chunk_size is None or chunk_size < 1:
+        chunk_size = len(image_ids_to_download)
+        logger.info(f'Using chunk_size={chunk_size}')
+
+    # dump image ID list into comma-separated list(s)
+    n_lists = 0
+    download_lists_str = ''
+    while len(image_ids_to_download) > 0:
+        n_lists += 1
+
+        if download_lists_str != '':
+            download_lists_str += '\n\n'
+        download_lists_str += f'LIST {n_lists}\n'
+        download_lists_str += ','.join(image_ids_to_download[:chunk_size])
+
+        if len(image_ids_to_download) > chunk_size:
+            image_ids_to_download = image_ids_to_download[chunk_size:]
+        else:
+            image_ids_to_download = []
+
     logger.info(
-        f'\n\n===== DOWNLOAD LIST FOR {session_id.upper()} =====\n'
-        + ','.join(image_ids_to_download)
-        + '\n'
+        f'\n\n===== DOWNLOAD LIST(S) FOR {session_id.upper()} =====\n'
+        f'{download_lists_str}\n'
         '\nCopy the above line into the "Image ID" field in the LONI Advanced Search tool'
         '\nMake sure to check the "DTI", "MRI", and "fMRI" boxes for the "Modality" field'
         '\nCreate a new collection and download the DICOMs, then unzip them in'
         f'\n{dpath_raw_dicom_session} and move the'
-        '\nsubject directories outside of the top-level PPMI directory'
+        '\nsubject directories outside of the top-level "PPMI" directory'
         '\n'
     )
 
@@ -193,6 +216,7 @@ if __name__ == '__main__':
     parser.add_argument('--session_id', type=str, default=None, help='MRI session (i.e. visit) to process)', required=True)
     parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS, help=f'number of parallel processes (default: {DEFAULT_N_JOBS})')
     parser.add_argument('--datatypes', nargs='+', help=f'BIDS datatypes to download (default: {DEFAULT_DATATYPES})', default=DEFAULT_DATATYPES)
+    parser.add_argument('--chunk_size', type=int, default=DEFAULT_CHUNK_SIZE, help=f'(default: {DEFAULT_CHUNK_SIZE})')
     parser.add_argument(
         '--imaging_filename', type=str, default=DEFAULT_IMAGING_FILENAME,
         help=('name of file containing imaging data availability info, with columns'
@@ -205,6 +229,7 @@ if __name__ == '__main__':
     session_id = args.session_id
     n_jobs = args.n_jobs
     datatypes = args.datatypes
+    chunk_size = args.chunk_size
     fname_imaging = args.imaging_filename
 
-    run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes)
+    run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk_size=chunk_size)
