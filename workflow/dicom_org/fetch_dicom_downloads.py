@@ -15,11 +15,14 @@ from tabular.filter_image_descriptions import (
     DATATYPE_ANAT, 
     DATATYPE_DWI, 
     DATATYPE_FUNC,
+    get_all_descriptions,
 )
 from tabular.generate_manifest import (
     COL_DESCRIPTION_IMAGING,
+    COL_GROUP_IMAGING,
     COL_SUBJECT_IMAGING,
     COL_VISIT_IMAGING,
+    GROUPS_KEEP,
     DEFAULT_IMAGING_FILENAME,
     GLOBAL_CONFIG_DATASET_ROOT,
     load_and_process_df_imaging
@@ -106,14 +109,14 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
     # gather all relevant series descriptions to download
     descriptions = set()
     for datatype in datatypes:
-        descriptions.update(datatype_descriptions_map[datatype])
+        descriptions.update(get_all_descriptions(datatype_descriptions_map[datatype]))
 
     # filter imaging df
-    df_imaging_keep = df_imaging.copy()
-    df_imaging_keep = df_imaging_keep.loc[
-        (df_imaging_keep[COL_SESSION_MANIFEST] == session_id)
-        & (df_imaging_keep[COL_DATATYPE_MANIFEST].isin(descriptions))
-    ]
+    df_imaging_keep = df_imaging.loc[
+        (df_imaging[COL_SESSION_MANIFEST] == session_id)
+        & (df_imaging[COL_DATATYPE_MANIFEST].isin(descriptions))
+        & (df_imaging[COL_GROUP_IMAGING].isin(GROUPS_KEEP))
+    ].copy()
     participants_all = set(df_imaging_keep[COL_SUBJECT_MANIFEST])
 
     # find participants who have already been downloaded
@@ -134,6 +137,7 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
     # sanity check that participants to download are in the status file
     participants_missing_in_status = participants_to_check - set(df_status_session[COL_SUBJECT_MANIFEST])
     if len(participants_missing_in_status) > 0:
+        print(','.join(participants_missing_in_status))
         raise RuntimeError(
             f'{len(participants_missing_in_status)} participants are not in the status file'
             '. Update the status file before rerunning this script'
@@ -184,7 +188,7 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
 
         if download_lists_str != '':
             download_lists_str += '\n\n'
-        download_lists_str += f'LIST {n_lists}\n'
+        download_lists_str += f'LIST {n_lists} ({min(chunk_size, len(image_ids_to_download))})\n'
         download_lists_str += ','.join(image_ids_to_download[:chunk_size])
 
         if len(image_ids_to_download) > chunk_size:
@@ -195,7 +199,7 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
     logger.info(
         f'\n\n===== DOWNLOAD LIST(S) FOR {session_id.upper()} =====\n'
         f'{download_lists_str}\n'
-        '\nCopy the above line into the "Image ID" field in the LONI Advanced Search tool'
+        '\nCopy the above list(s) into the "Image ID" field in the LONI Advanced Search tool'
         '\nMake sure to check the "DTI", "MRI", and "fMRI" boxes for the "Modality" field'
         '\nCreate a new collection and download the DICOMs, then unzip them in'
         f'\n{dpath_raw_dicom_session} and move the'
