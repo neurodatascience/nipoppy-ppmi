@@ -90,6 +90,10 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
 
     # load status data
     fpath_status = dpath_dataset / FPATH_STATUS_RELATIVE
+    if not fpath_status.exists():
+        error_message = f'Status file not found: {fpath_status}. Make sure to run check_dicom_status.py first!'
+        logger.error(error_message)
+        raise FileNotFoundError(error_message)
     df_status = load_status(fpath_status)
     df_status_session = df_status.loc[df_status[COL_SESSION_MANIFEST] == session_id]
 
