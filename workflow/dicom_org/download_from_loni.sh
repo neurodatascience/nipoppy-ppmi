@@ -29,12 +29,28 @@ do
     FILENAME=${URL##*/}
     FILENAME=${FILENAME##*=} # needed for metadata file
 
-    # call wget from local machine, dump to stdout
-    # and pipe to remote host using ssh
-    COMMAND="(
-        wget -O - '$URL' \
-        | ssh $HOST 'cat > $DPATH_REMOTE/$FILENAME'
-    ) &"
+    # check if file already exists
+    FPATH_REMOTE=$DPATH_REMOTE/$FILENAME
+    FILE_EXISTS=`ssh bic "[[ -f $FPATH_REMOTE ]] && echo $FPATH_REMOTE"`
+
+    if [[ -z $FILE_EXISTS ]]
+    then
+
+        echo "Downloading $FPATH_REMOTE"
+
+        # call wget from local machine, dump to stdout
+        # and pipe to remote host using ssh
+        COMMAND="(
+            wget -O - '$URL' \
+            | ssh $HOST 'cat > $FPATH_REMOTE'
+        ) &"
+
+    else
+
+        # don't overwrite file
+        echo "$FPATH_REMOTE already exists on $HOST. Not downloading"
+
+    fi
 
     echo $COMMAND
     eval $COMMAND
