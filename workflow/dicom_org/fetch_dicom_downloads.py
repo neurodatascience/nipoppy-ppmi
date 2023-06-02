@@ -19,7 +19,7 @@ from tabular.filter_image_descriptions import (
 )
 from tabular.generate_manifest import (
     COL_DESCRIPTION_IMAGING,
-    COL_GROUP_IMAGING,
+    COL_GROUP_TABULAR,
     COL_SUBJECT_IMAGING,
     COL_VISIT_IMAGING,
     GROUPS_KEEP,
@@ -112,10 +112,11 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
         descriptions.update(get_all_descriptions(datatype_descriptions_map[datatype]))
 
     # filter imaging df
+    # TODO filter based on status file, not by groups
     df_imaging_keep = df_imaging.loc[
         (df_imaging[COL_SESSION_MANIFEST] == session_id)
         & (df_imaging[COL_DATATYPE_MANIFEST].isin(descriptions))
-        & (df_imaging[COL_GROUP_IMAGING].isin(GROUPS_KEEP))
+        & (df_imaging[COL_GROUP_TABULAR].isin(GROUPS_KEEP))
     ].copy()
     participants_all = set(df_imaging_keep[COL_SUBJECT_MANIFEST])
 
@@ -166,8 +167,8 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
         f'\n{len(participants_all)} participant(s) have imaging data for session "{session_id}"'
         f'\n{len(participants_downloaded)} participant(s) already have downloaded data according to the status file'
         f'\n{len(df_imaging_to_check)} images(s) to check ({len(participants_to_check)} participant(s))'
-        f'\n\tFound {df_imaging_to_check[COL_DOWNLOAD_STATUS].sum()} images already downloaded'
-        f'\n\tRemaining {(~df_imaging_to_check[COL_DOWNLOAD_STATUS]).sum()} images need to be downloaded from LONI'
+        f'\n\tFound {int(df_imaging_to_check[COL_DOWNLOAD_STATUS].sum())} images already downloaded'
+        f'\n\tRemaining {int((~df_imaging_to_check[COL_DOWNLOAD_STATUS]).sum())} images need to be downloaded from LONI'
         f'\nUpdated status for {len(participants_to_update)} participant(s)'
         '\n'
     )
