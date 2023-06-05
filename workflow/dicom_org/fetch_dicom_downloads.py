@@ -41,9 +41,9 @@ from workflow.utils import (
 )
 
 # default command-line arguments
-DEFAULT_DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
+DEFAULT_DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI]
 DEFAULT_N_JOBS = 4
-DEFAULT_CHUNK_SIZE = 500
+DEFAULT_CHUNK_SIZE = 1000
 
 # imaging dataframe
 COL_IMAGE_ID = 'Image ID'
@@ -112,11 +112,9 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
         descriptions.update(get_all_descriptions(datatype_descriptions_map[datatype]))
 
     # filter imaging df
-    # TODO filter based on status file, not by groups
     df_imaging_keep = df_imaging.loc[
-        (df_imaging[COL_SESSION_MANIFEST] == session_id)
+        (df_imaging[COL_SUBJECT_MANIFEST].isin(df_status_session[COL_SUBJECT_MANIFEST]))
         & (df_imaging[COL_DATATYPE_MANIFEST].isin(descriptions))
-        & (df_imaging[COL_GROUP_TABULAR].isin(GROUPS_KEEP))
     ].copy()
     participants_all = set(df_imaging_keep[COL_SUBJECT_MANIFEST])
 
@@ -134,16 +132,6 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
     df_imaging_to_check: pd.DataFrame = df_imaging_keep.loc[
         df_imaging_keep[COL_SUBJECT_MANIFEST].isin(participants_to_check),
     ].copy()
-
-    # sanity check that participants to download are in the status file
-    participants_missing_in_status = participants_to_check - set(df_status_session[COL_SUBJECT_MANIFEST])
-    if len(participants_missing_in_status) > 0:
-        print(','.join(participants_missing_in_status))
-        raise RuntimeError(
-            f'{len(participants_missing_in_status)} participants are not in the status file'
-            '. Update the status file before rerunning this script'
-            '. The manifest may also need to be updated'
-        )
 
     # check if any image ID has already been downloaded
     check_status = Parallel(n_jobs=n_jobs)(
@@ -174,7 +162,8 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
     )
 
     # get images to download
-    image_ids_to_download = df_imaging_to_check.loc[~df_imaging_to_check[COL_DOWNLOAD_STATUS], COL_IMAGE_ID].to_list()
+    image_ids_to_download = df_imaging_to_check.loc[~df_imaging_to_check[COL_DOWNLOAD_STATUS], [COL_SUBJECT_MANIFEST, COL_IMAGE_ID]]
+    image_ids_to_download = image_ids_to_download.sort_values(COL_SUBJECT_MANIFEST)
 
     # output a single chunk if no size is specified
     if chunk_size is None or chunk_size < 1:
@@ -189,11 +178,25 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
 
         if download_lists_str != '':
             download_lists_str += '\n\n'
-        download_lists_str += f'LIST {n_lists} ({min(chunk_size, len(image_ids_to_download))})\n'
-        download_lists_str += ','.join(image_ids_to_download[:chunk_size])
 
-        if len(image_ids_to_download) > chunk_size:
-            image_ids_to_download = image_ids_to_download[chunk_size:]
+        # generate the list of image IDs to download
+        # all images from the same subject must be in the same list
+        # so the lists may be smaller than chunk_size
+        download_list = []
+        for _, image_ids_for_subject in image_ids_to_download.groupby(COL_SUBJECT_MANIFEST):
+            if len(download_list) + len(image_ids_for_subject) > chunk_size:
+                if len(download_list) == 0:
+                    raise RuntimeError(f'chunk_size of {chunk_size} is too small, try increasing to {len(image_ids_for_subject)}')
+                break
+            download_list.extend(image_ids_for_subject[COL_IMAGE_ID].to_list())
+
+        # build string to print out in one shot by the logger
+        download_lists_str += f'LIST {n_lists} ({len(download_list)})\n'
+        download_lists_str += ','.join(download_list)
+
+        # update for next iteration
+        if len(download_list) < len(image_ids_to_download):
+            image_ids_to_download = image_ids_to_download[len(download_list):]
         else:
             image_ids_to_download = []
 
