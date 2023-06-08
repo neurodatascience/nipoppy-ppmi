@@ -4,7 +4,7 @@ DATATYPE_FUNC = 'func'
 DATATYPE_ANAT = 'anat'
 SUFFIX_T1 = 'T1w'           # BIDS standard (file suffix)
 SUFFIX_T2 = 'T2w'
-SUFFIX_T2_STAR = 'T1starw'
+SUFFIX_T2_STAR = 'T2starw'
 SUFFIX_FLAIR = 'FLAIR'
 
 # ========== FILTERS ==========
