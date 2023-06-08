@@ -6,6 +6,9 @@ from pathlib import Path
 
 import pandas as pd
 
+# BIDS datatypes are folder names under the subject folder, typically related to imaging modalities (anat, dwi, func, etc.)
+# BIDS suffixes are the last suffix before the file extension in a filename, typically related to image contrast (T1w, etc.)
+# https://bids-specification.readthedocs.io/en/stable/05-derivatives/02-common-data-types.html#preprocessed-or-cleaned-data
 from tabular.filters import (
     DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, 
     SUFFIX_T1, SUFFIX_T2, SUFFIX_T2_STAR, SUFFIX_FLAIR,
@@ -22,14 +25,15 @@ DPATH_INPUT_RELATIVE = Path('tabular', 'study_data')  # relative to DATASET_ROOT
 FLAG_OVERWRITE = '--overwrite'
 
 # imaging table columns
-COL_MODALITY = 'Modality'
+COL_MODALITY = 'Modality'           # column name in PPMI schema
 COL_DESCRIPTION = 'Description'
 COL_PROTOCOL = 'Imaging Protocol'
-MODALITY_DWI = 'DTI'        # PPMI Modality column
+MODALITY_DWI = 'DTI'                # PPMI "Modality" column
 MODALITY_FUNC = 'fMRI'
 MODALITY_ANAT = 'MRI'
 
-# datatype names and mapping to modalities
+# mapping from BIDS datatype/suffix to PPMI "Modality" column
+# the PPMI "Modality" column is not 100% accurate so we still have to check description strings
 DATATYPE_MODALITY_MAP = {
     DATATYPE_DWI: MODALITY_DWI,
     DATATYPE_FUNC: MODALITY_FUNC,
