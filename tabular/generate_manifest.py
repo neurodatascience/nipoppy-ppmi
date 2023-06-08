@@ -1,0 +1,468 @@
+#!/usr/bin/env python
+
+import argparse
+import datetime
+import json
+import shutil
+import warnings
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
+from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, get_all_descriptions
+from workflow.utils import (
+    COL_BIDS_ID_MANIFEST,
+    COL_DATATYPE_MANIFEST,
+    COL_SESSION_MANIFEST,
+    COL_SUBJECT_MANIFEST,
+    COL_VISIT_MANIFEST,
+    COLS_MANIFEST,
+    DNAME_BACKUPS_MANIFEST, 
+    FNAME_MANIFEST,
+    load_manifest,
+    participant_id_to_bids_id,
+    save_backup, 
+    session_id_to_bids_session,
+)
+
+# subject groups to keep
+GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD']
+
+# paths relative to DATASET_ROOT
+DPATH_TABULAR_RELATIVE = Path('tabular')
+DPATH_RELEASES_RELATIVE = Path('releases')
+DPATH_INPUT_RELATIVE = DPATH_TABULAR_RELATIVE / 'study_data'
+DPATH_OUTPUT_RELATIVE = DPATH_TABULAR_RELATIVE
+
+DEFAULT_IMAGING_FILENAME = 'idaSearch.csv'
+DEFAULT_GROUP_FILENAME = 'Participant_Status.csv'
+
+TABULAR_FILENAMES = [
+    'Age_at_visit.csv', 
+    'Montreal_Cognitive_Assessment__MoCA_.csv',
+    'MDS-UPDRS_Part_I.csv',
+    'MDS-UPDRS_Part_I_Patient_Questionnaire.csv',
+    'MDS_UPDRS_Part_II__Patient_Questionnaire.csv',
+    'MDS-UPDRS_Part_III.csv',
+    'MDS-UPDRS_Part_IV__Motor_Complications.csv',
+]
+COL_SUBJECT_IMAGING = 'Subject ID'
+COL_VISIT_IMAGING = 'Visit'
+COL_GROUP_IMAGING = 'Research Group'
+VISIT_IMAGING_MAP = {
+    'Baseline': 'BL',
+    'Month 6': 'R01',
+    'Month 12': 'V04',
+    'Month 24': 'V06',
+    'Month 36': 'V08',
+    'Month 48': 'V10',
+    'Screening': 'SC',
+    'Premature Withdrawal': 'PW',
+    'Symptomatic Therapy': 'ST',
+    'Unscheduled Visit 01': 'U01',
+    'Unscheduled Visit 02': 'U02',
+}
+GROUP_IMAGING_MAP = {
+    'PD': 'Parkinson\'s Disease',
+    'Prodromal': 'Prodromal',
+    'Control': 'Healthy Control',
+    'Phantom': 'Phantom',               # not in participant status file
+    'SWEDD': 'SWEDD',
+    'GenReg Unaff': 'GenReg Unaff',     # not in participant status file
+}
+DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
+
+COL_SUBJECT_TABULAR = 'PATNO'
+COL_VISIT_TABULAR = 'EVENT_ID'
+COL_GROUP_TABULAR = 'COHORT_DEFINITION'
+VISIT_SESSION_MAP = {
+    'BL': '1',
+    'V04': '5',
+    'V06': '7',
+    'V08': '9',
+    'V10': '11',
+    'PW': '30', 
+    'ST': '21',
+    'U02': '91',
+    'U01': '90',
+    'SC': '0',
+    'R01': '3', # Month 6
+}
+
+# global config keys
+GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
+GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
+
+# flags
+FLAG_REGENERATE = '--regenerate'
+
+def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[str], 
+        group_filename: str, regenerate: bool, make_release: bool):
+
+    # parse global config
+    with open(global_config_file) as file:
+        global_config = json.load(file)
+    dpath_dataset = Path(global_config[GLOBAL_CONFIG_DATASET_ROOT])
+
+    validate_visit_session_map(global_config)
+
+    # generate filepaths
+    dpath_input = dpath_dataset / DPATH_INPUT_RELATIVE
+    fpath_imaging = dpath_input / imaging_filename
+    fpaths_tabular = [dpath_input / tabular_filename for tabular_filename in tabular_filenames]
+    fpath_group = dpath_input / group_filename
+    fnames_keep_release = [imaging_filename, group_filename] + tabular_filenames # PPMI study files to keep
+    fpath_descriptions = Path(__file__).parent / FNAME_DESCRIPTIONS
+    fpath_manifest_symlink = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
+    
+    # load old manifest if it exists
+    if fpath_manifest_symlink.exists():
+        df_manifest_old = load_manifest(fpath_manifest_symlink)
+    else:
+        df_manifest_old = None
+
+    # load data dfs and heuristics json
+    df_imaging = load_and_process_df_imaging(fpath_imaging)
+    df_group = pd.read_csv(fpath_group, dtype=str)
+    df_tabular = None
+    for fpath_tabular in fpaths_tabular:
+        df_tabular_tmp = pd.read_csv(fpath_tabular, dtype=str)
+        if not len({COL_SUBJECT_TABULAR, COL_VISIT_TABULAR} - set(df_tabular_tmp.columns)) == 0:
+            raise RuntimeError(f'Tabular file {fpath_tabular} does not contain required columns')
+        df_tabular: pd.DataFrame = pd.concat([df_tabular, df_tabular_tmp])
+    df_tabular = df_tabular.drop_duplicates([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])
+
+    with fpath_descriptions.open('r') as file_descriptions:
+        datatype_descriptions_map: dict = json.load(file_descriptions)
+    
+    # reverse the mapping
+    description_datatype_map = {}
+    for datatype in DATATYPES:
+        descriptions = get_all_descriptions(datatype_descriptions_map[datatype])
+        for description in descriptions:
+            if description in description_datatype_map:
+                warnings.warn(f'\nDescription {description} has more than one associated datatype, using "{description_datatype_map[description]}"\n')
+            else:
+                description_datatype_map[description] = datatype
+
+    # ===== format tabular data =====
+
+    # rename columns
+    df_tabular = df_tabular.rename(columns={
+        COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST, 
+        COL_VISIT_TABULAR: COL_VISIT_MANIFEST,
+    })
+    df_group = df_group.rename(columns={
+        COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST,
+    })
+
+    # add group info to tabular dataframe
+    df_tabular = df_tabular.merge(df_group[[COL_SUBJECT_MANIFEST, COL_GROUP_TABULAR]], on=COL_SUBJECT_MANIFEST, how='left')
+    if df_tabular[COL_GROUP_TABULAR].isna().any():
+        
+        df_tabular_missing_group = df_tabular.loc[
+            df_tabular[COL_GROUP_TABULAR].isna(),
+            COL_SUBJECT_MANIFEST,
+        ]
+        print(
+            '\nSome subjects in tabular data do not belong to any research group'
+            f'\n{df_tabular_missing_group}'
+        )
+
+        # try to find group in imaging dataframe
+        for idx, subject in df_tabular_missing_group.items():
+
+            group = df_imaging.loc[
+                df_imaging[COL_SUBJECT_MANIFEST] == subject,
+                COL_GROUP_TABULAR,
+            ].drop_duplicates()
+
+            try:
+                group = group.item()
+            except ValueError:
+                continue
+
+            df_tabular.loc[idx, COL_GROUP_TABULAR] = group
+
+        if df_tabular[COL_GROUP_TABULAR].isna().any():
+            warnings.warn(
+                '\nDid not successfully fill in missing group values using imaging data'
+                f'\n{df_tabular.loc[df_tabular[COL_GROUP_TABULAR].isna()]}')
+
+        else:
+            print('Successfully filled in missing group values using imaging data')
+
+    # ===== process imaging data =====
+
+    print(f'\nProcessing imaging data...\tShape: {df_imaging.shape}')
+    print('\nSession counts:'
+        f'\n{df_imaging[COL_SESSION_MANIFEST].value_counts(dropna=False)}'
+    )
+
+    # check if all expected sessions are present
+    diff_sessions = set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(df_imaging[COL_SESSION_MANIFEST])
+    if len(diff_sessions) != 0:
+        warnings.warn(f'\nDid not encounter all sessions listed in global_config. Missing: {diff_sessions}')
+
+    # only keep sessions that are listed in global_config
+    n_img_before_session_drop = df_imaging.shape[0]
+    df_imaging = df_imaging.loc[df_imaging[COL_SESSION_MANIFEST].isin(global_config[GLOBAL_CONFIG_SESSIONS])]
+    print(
+        f'\nDropped {n_img_before_session_drop - df_imaging.shape[0]} imaging entries'
+        f' because the session was not in {global_config[GLOBAL_CONFIG_SESSIONS]}'
+    )
+    print('\nCohort composition:'
+        f'\n{df_imaging[COL_GROUP_TABULAR].value_counts(dropna=False)}'
+    )
+
+    # check if all expected groups are present
+    diff_groups = set(GROUPS_KEEP) - set(df_imaging[COL_GROUP_TABULAR])
+    if len(diff_groups) != 0:
+        warnings.warn(f'\nDid not encounter all groups listed in GROUPS_KEEP. Missing: {diff_groups}')
+
+    # only keep subjects in certain groups
+    n_img_before_subject_drop = df_imaging.shape[0]
+    df_imaging = df_imaging.loc[df_imaging[COL_GROUP_TABULAR].isin(GROUPS_KEEP)]
+    print(
+        f'\nDropped {n_img_before_subject_drop - df_imaging.shape[0]} imaging entries'
+        f' because the subject\'s research group was not in {GROUPS_KEEP}'
+    )
+
+    # create imaging datatype availability lists
+    seen_datatypes = set()
+    df_imaging = df_imaging.groupby([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST, COL_SESSION_MANIFEST])[COL_DATATYPE_MANIFEST].aggregate(
+        lambda descriptions: get_datatype_list(descriptions, description_datatype_map, seen=seen_datatypes)
+    )
+    df_imaging = df_imaging.reset_index()
+    print(f'\nFinal imaging dataframe shape: {df_imaging.shape}')
+
+    # check if all expected datatypes are present
+    diff_datatypes = set(DATATYPES) - seen_datatypes
+    if len(diff_datatypes) != 0:
+        warnings.warn(f'\nDid not encounter all datatypes in datatype_descriptions_map. Missing: {diff_datatypes}')
+    
+    print(
+        '\nProcessing tabular data...'
+        f'\tShape: {df_tabular.shape}'
+    )
+    print('\nCohort composition:'
+        f'\n{df_tabular[COL_GROUP_TABULAR].value_counts(dropna=False)}\n'
+    )
+
+    # only keep subjects in certain groups
+    n_tab_before_subject_drop = df_tabular.shape[0]
+    df_tabular = df_tabular.loc[df_tabular[COL_GROUP_TABULAR].isin(GROUPS_KEEP)]
+    print(
+        f'\nDropped {n_tab_before_subject_drop - df_tabular.shape[0]} tabular entries'
+        f' because the subject\'s research group was not in {GROUPS_KEEP}\n'
+    )
+
+    # merge on subject and visit
+    key_merge = '_merge'
+    df_manifest = df_tabular.merge(df_imaging, how='outer', 
+                                   on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST],
+                                   indicator=key_merge)
+    
+    # warning if missing tabular information
+    df_imaging_without_tabular = df_manifest.loc[df_manifest[key_merge] == 'right_only']
+    if len(df_imaging_without_tabular) > 0:
+        warnings.warn(
+            '\nSome imaging entries have no corresponding tabular information'
+            f'\n{df_imaging_without_tabular}'
+        )
+
+    # replace NA datatype by empty list
+    df_manifest[COL_DATATYPE_MANIFEST] = df_manifest[COL_DATATYPE_MANIFEST].apply(
+        lambda datatype: datatype if isinstance(datatype, list) else []
+    )
+
+    # convert session to BIDS format
+    with_imaging = ~df_manifest[COL_SESSION_MANIFEST].isna()
+    df_manifest.loc[with_imaging, COL_SESSION_MANIFEST] = df_manifest.loc[with_imaging, COL_SESSION_MANIFEST].apply(
+        session_id_to_bids_session,
+    )
+
+    # convert subject ID to BIDS format
+    df_manifest.loc[with_imaging, COL_BIDS_ID_MANIFEST] = df_manifest.loc[with_imaging, COL_SUBJECT_MANIFEST].apply(
+        participant_id_to_bids_id,
+    )
+
+    # populate other columns
+    for col in COLS_MANIFEST:
+        if not (col in df_manifest.columns):
+            df_manifest[col] = np.nan
+
+    # only keep new subject/session pairs
+    # otherwise we build/rebuild the manifest from scratch
+    if (not regenerate) and (df_manifest_old is not None):
+
+        subject_session_pairs_old = pd.Index(zip(
+            df_manifest_old[COL_SUBJECT_MANIFEST],
+            df_manifest_old[COL_SESSION_MANIFEST],
+        ))
+
+        df_manifest = df_manifest.set_index([COL_SUBJECT_MANIFEST, COL_SESSION_MANIFEST])
+
+        # error if new manifest loses subject-session pairs
+        df_manifest_deleted_rows = df_manifest_old.loc[~subject_session_pairs_old.isin(df_manifest.index)]
+        if len(df_manifest_deleted_rows) > 0:
+            raise RuntimeError(
+                'Some of the subject/session pairs in the old manifest do not'
+                ' seem to exist anymore:'
+                f'\n{df_manifest_deleted_rows}'
+                f'\nUse {FLAG_REGENERATE} to fully regenerate the manifest')
+
+        df_manifest_new_rows = df_manifest.loc[~df_manifest.index.isin(subject_session_pairs_old)]
+        df_manifest_new_rows = df_manifest_new_rows.reset_index()[COLS_MANIFEST]
+        df_manifest = pd.concat([df_manifest_old, df_manifest_new_rows], axis='index')
+        print(f'\nAdded {len(df_manifest_new_rows)} rows to existing manifest')
+
+    # reorder columns and sort
+    df_manifest = df_manifest[COLS_MANIFEST]
+    df_manifest = df_manifest.sort_values([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]).reset_index(drop=True)
+
+    # do not write file if there are no changes from previous manifest
+    if df_manifest_old is not None:
+        if df_manifest.equals(df_manifest_old):
+            print(f'\nNo change from existing manifest. Will not write new manifest.')
+            if make_release:
+                make_new_release(dpath_dataset, dpath_input, fnames_keep_release)
+            return
+        fpath_manifest_symlink.unlink()
+
+    print(
+        '\nCreated manifest:'
+        f'\n{df_manifest}'
+    )
+
+    save_backup(df_manifest, fpath_manifest_symlink, DNAME_BACKUPS_MANIFEST)
+
+    if make_release:
+        make_new_release(dpath_dataset, dpath_input, fnames_keep_release)
+
+def validate_visit_session_map(global_config):
+    if len(set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(VISIT_SESSION_MAP.values())) > 0:
+        raise ValueError(
+            f'Invalid VISIT_SESSION_MAP: {VISIT_SESSION_MAP}. Must have an entry'
+            f' for each session in global_config: {global_config[GLOBAL_CONFIG_SESSIONS]}')
+
+def load_and_process_df_imaging(fpath_imaging):
+
+    # load
+    df_imaging = pd.read_csv(fpath_imaging, dtype=str)
+
+    # rename columns
+    df_imaging = df_imaging.rename(columns={
+        COL_SUBJECT_IMAGING: COL_SUBJECT_MANIFEST,
+        COL_VISIT_IMAGING: COL_VISIT_MANIFEST,
+        COL_DESCRIPTION_IMAGING: COL_DATATYPE_MANIFEST,
+    })
+
+    # convert visits from imaging to tabular labels
+    try:
+        df_imaging[COL_VISIT_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].apply(
+            lambda visit: VISIT_IMAGING_MAP[visit]
+        )
+    except KeyError as ex:
+        raise RuntimeError(
+            f'Found visit without mapping in VISIT_IMAGING_MAP: {ex.args[0]}')
+
+    # map visits to sessions
+    missing_session_mappings = set(df_imaging[COL_VISIT_MANIFEST]) - set(VISIT_SESSION_MAP.keys())
+    if len(missing_session_mappings) > 0:
+        warnings.warn(f'\nMissing mapping(s) in VISIT_SESSION_MAP: {missing_session_mappings}')
+    df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].map(VISIT_SESSION_MAP)
+
+    # map group to tabular data naming scheme
+    try:
+        df_imaging[COL_GROUP_TABULAR] = df_imaging[COL_GROUP_IMAGING].apply(
+            lambda group: GROUP_IMAGING_MAP[group]
+        )
+    except KeyError as ex:
+        raise RuntimeError(
+            f'Found group without mapping in GROUP_IMAGING_MAP: {ex.args[0]}')
+    
+    return df_imaging
+
+def get_datatype_list(descriptions: pd.Series, description_datatype_map, seen=None):
+
+    datatypes = descriptions.map(description_datatype_map)
+    datatypes = datatypes.loc[~datatypes.isna()]
+    datatypes = datatypes.drop_duplicates().sort_values().to_list()
+
+    if isinstance(seen, set):
+        seen.update(datatypes)
+
+    return datatypes
+
+def make_new_release(dpath_dataset: Path, dpath_input: Path, fnames_keep: list[str]):
+
+    def ignore_func(dpath, fnames):
+        if Path(dpath).samefile(dpath_input):
+            return [fname for fname in fnames if fname not in fnames_keep]
+        else:
+            return []
+
+    date_str = datetime.datetime.now().strftime('%Y_%m_%d')
+    dpath_source = dpath_dataset / DPATH_TABULAR_RELATIVE
+    dpath_target = dpath_dataset / DPATH_RELEASES_RELATIVE / date_str
+
+    if dpath_target.exists():
+        raise FileExistsError(f'Release directory already exists: {dpath_target}')
+    
+    shutil.copytree(dpath_source, dpath_target, symlinks=True, ignore=ignore_func)
+    print(f'\nNew release created: {dpath_target}')
+
+def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
+    return '%s:%s: %s: %s\n' % (filename, lineno, category.__name__, message)
+
+if __name__ == '__main__':
+    # argparse
+    HELPTEXT = f"""
+    Script to generate manifest file for PPMI dataset.
+    Requires an imaging data availability info file that can be downloaded from 
+    the LONI IDA, the PPMI participant status info files, as well as at least 
+    one PPMI tabular file with subject and visit columns. 
+    All these files should be in <DATASET_ROOT>/{DPATH_INPUT_RELATIVE}.
+    """
+    parser = argparse.ArgumentParser(description=HELPTEXT)
+    parser.add_argument(
+        '--global_config', type=str, required=True,
+        help='path to global config file for your mr_proc dataset (required)')
+    parser.add_argument(
+        '--imaging_filename', type=str, default=DEFAULT_IMAGING_FILENAME,
+        help=('name of file containing imaging data availability info, with columns'
+              f' "{COL_SUBJECT_IMAGING}", "{COL_VISIT_IMAGING}", "{COL_GROUP_IMAGING}", and "{COL_DESCRIPTION_IMAGING}"'
+              f' (default: {DEFAULT_IMAGING_FILENAME})'))
+    parser.add_argument(
+        '--group_filename', type=str, default=DEFAULT_GROUP_FILENAME,
+        help=('name of file containing participant group info, with columns'
+              f' "{COL_SUBJECT_TABULAR}" and "{COL_GROUP_TABULAR}"'
+              f' (default: {DEFAULT_GROUP_FILENAME})'))
+    parser.add_argument(
+        FLAG_REGENERATE, action='store_true',
+        help=('regenerate entire manifest'
+              ' (default: only append rows for new subjects/sessions)'),
+    )
+    parser.add_argument(
+        '--make_release', action='store_true',
+        help=(f'copy <DATASET_ROOT>/{DPATH_TABULAR_RELATIVE} to a'
+              f' release directory in <DATASET_ROOT>/{DPATH_RELEASES_RELATIVE}')
+    )
+    args = parser.parse_args()
+
+    # parse
+    global_config_file = args.global_config
+    imaging_filename = args.imaging_filename
+    group_filename = args.group_filename
+    make_release = args.make_release
+    regenerate = getattr(args, FLAG_REGENERATE.lstrip('-'))
+
+    tabular_filenames = TABULAR_FILENAMES
+
+    warnings.formatwarning = warning_on_one_line
+
+    run(global_config_file, imaging_filename, tabular_filenames, group_filename, 
+        regenerate=regenerate, make_release=make_release)
