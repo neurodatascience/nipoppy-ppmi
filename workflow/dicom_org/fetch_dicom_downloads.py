@@ -114,6 +114,7 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
     # filter imaging df
     df_imaging_keep = df_imaging.loc[
         (df_imaging[COL_SUBJECT_MANIFEST].isin(df_status_session[COL_SUBJECT_MANIFEST]))
+        & (df_imaging[COL_SESSION_MANIFEST] == session_id)
         & (df_imaging[COL_DATATYPE_MANIFEST].isin(descriptions))
     ].copy()
     participants_all = set(df_imaging_keep[COL_SUBJECT_MANIFEST])
