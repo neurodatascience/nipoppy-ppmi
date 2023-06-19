@@ -77,19 +77,6 @@ DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
 COL_SUBJECT_TABULAR = 'PATNO'
 COL_VISIT_TABULAR = 'EVENT_ID'
 COL_GROUP_TABULAR = 'COHORT_DEFINITION'
-VISIT_SESSION_MAP = {
-    'BL': '1',
-    'V04': '5',
-    'V06': '7',
-    'V08': '9',
-    'V10': '11',
-    'PW': '30', 
-    'ST': '21',
-    'U02': '91',
-    'U01': '90',
-    'SC': '0',
-    'R01': '3', # Month 6
-}
 
 # global config keys
 GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
@@ -105,8 +92,6 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     with open(global_config_file) as file:
         global_config = json.load(file)
     dpath_dataset = Path(global_config[GLOBAL_CONFIG_DATASET_ROOT])
-
-    validate_visit_session_map(global_config)
 
     # generate filepaths
     dpath_input = dpath_dataset / DPATH_INPUT_RELATIVE
@@ -342,12 +327,6 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     if make_release:
         make_new_release(dpath_dataset, dpath_input, fnames_keep_release)
 
-def validate_visit_session_map(global_config):
-    if len(set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(VISIT_SESSION_MAP.values())) > 0:
-        raise ValueError(
-            f'Invalid VISIT_SESSION_MAP: {VISIT_SESSION_MAP}. Must have an entry'
-            f' for each session in global_config: {global_config[GLOBAL_CONFIG_SESSIONS]}')
-
 def load_and_process_df_imaging(fpath_imaging):
 
     # load
@@ -369,11 +348,8 @@ def load_and_process_df_imaging(fpath_imaging):
         raise RuntimeError(
             f'Found visit without mapping in VISIT_IMAGING_MAP: {ex.args[0]}')
 
-    # map visits to sessions
-    missing_session_mappings = set(df_imaging[COL_VISIT_MANIFEST]) - set(VISIT_SESSION_MAP.keys())
-    if len(missing_session_mappings) > 0:
-        warnings.warn(f'\nMissing mapping(s) in VISIT_SESSION_MAP: {missing_session_mappings}')
-    df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].map(VISIT_SESSION_MAP)
+    # visits and sessions are the same
+    df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST]
 
     # map group to tabular data naming scheme
     try:
