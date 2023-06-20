@@ -373,7 +373,7 @@
             "t2 weighted double echo",
             "t2_tse_tra"
         ],
-        "T1starw": [
+        "T2starw": [
             "3-pl T2* FGRE",
             "AXIAL_T2_STAR",
             "Ax T2* GRE"
