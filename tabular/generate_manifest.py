@@ -32,22 +32,14 @@ GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD']
 
 # paths relative to DATASET_ROOT
 DPATH_TABULAR_RELATIVE = Path('tabular')
+DPATH_ASSESSMENTS_RELATIVE = DPATH_TABULAR_RELATIVE / 'assessments'
+DPATH_DEMOGRAPHICS_RELATIVE = DPATH_TABULAR_RELATIVE / 'demographics'
+DPATH_OTHER_RELATIVE = DPATH_TABULAR_RELATIVE / 'other'
 DPATH_RELEASES_RELATIVE = Path('releases')
-DPATH_INPUT_RELATIVE = DPATH_TABULAR_RELATIVE / 'study_data'
 DPATH_OUTPUT_RELATIVE = DPATH_TABULAR_RELATIVE
 
-DEFAULT_IMAGING_FILENAME = 'idaSearch.csv'
-DEFAULT_GROUP_FILENAME = 'Participant_Status.csv'
+KEY_GROUP = 'GROUP' # global config key
 
-TABULAR_FILENAMES = [
-    'Age_at_visit.csv', 
-    'Montreal_Cognitive_Assessment__MoCA_.csv',
-    'MDS-UPDRS_Part_I.csv',
-    'MDS-UPDRS_Part_I_Patient_Questionnaire.csv',
-    'MDS_UPDRS_Part_II__Patient_Questionnaire.csv',
-    'MDS-UPDRS_Part_III.csv',
-    'MDS-UPDRS_Part_IV__Motor_Complications.csv',
-]
 COL_SUBJECT_IMAGING = 'Subject ID'
 COL_VISIT_IMAGING = 'Visit'
 COL_GROUP_IMAGING = 'Research Group'
@@ -85,8 +77,7 @@ GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
 # flags
 FLAG_REGENERATE = '--regenerate'
 
-def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[str], 
-        group_filename: str, regenerate: bool, make_release: bool):
+def run(global_config_file: str, regenerate: bool, make_release: bool):
 
     # parse global config
     with open(global_config_file) as file:
@@ -94,14 +85,21 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     dpath_dataset = Path(global_config[GLOBAL_CONFIG_DATASET_ROOT])
 
     # generate filepaths
-    dpath_input = dpath_dataset / DPATH_INPUT_RELATIVE
-    fpath_imaging = dpath_input / imaging_filename
-    fpaths_tabular = [dpath_input / tabular_filename for tabular_filename in tabular_filenames]
-    fpath_group = dpath_input / group_filename
-    fnames_keep_release = [imaging_filename, group_filename] + tabular_filenames # PPMI study files to keep
+    dpath_demographics = dpath_dataset / DPATH_DEMOGRAPHICS_RELATIVE
+    dpath_assessments = dpath_dataset / DPATH_ASSESSMENTS_RELATIVE
+    dpath_other = dpath_dataset / DPATH_OTHER_RELATIVE
+    fpath_demographics = dpath_demographics / global_config['TABULAR']['DEMOGRAPHICS']['DEMOGRAPHICS']['FILENAME']
+    fpaths_assessments = [dpath_assessments / file_info['FILENAME'] for file_info in global_config['TABULAR']['ASSESSMENTS'].values()]
+    fpath_imaging = dpath_other / global_config['TABULAR']['OTHER']['IMAGING_INFO']['FILENAME']
+    fpath_group = dpath_assessments / global_config['TABULAR']['ASSESSMENTS']['COHORT_DEFINITION']['FILENAME']
     fpath_descriptions = Path(__file__).parent / FNAME_DESCRIPTIONS
     fpath_manifest_symlink = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
-    
+    dpaths_include_in_release = [dpath_demographics, dpath_assessments, dpath_other]
+
+    for fpath in [fpath_imaging, fpath_demographics, *fpaths_assessments, fpath_group, fpath_descriptions]:
+        if not fpath.exists():
+            raise RuntimeError(f'File {fpath} does not exist')
+
     # load old manifest if it exists
     if fpath_manifest_symlink.exists():
         df_manifest_old = load_manifest(fpath_manifest_symlink)
@@ -109,15 +107,19 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
         df_manifest_old = None
 
     # load data dfs and heuristics json
+    df_demographics = pd.read_csv(fpath_demographics)
     df_imaging = load_and_process_df_imaging(fpath_imaging)
     df_group = pd.read_csv(fpath_group, dtype=str)
-    df_tabular = None
-    for fpath_tabular in fpaths_tabular:
-        df_tabular_tmp = pd.read_csv(fpath_tabular, dtype=str)
-        if not len({COL_SUBJECT_TABULAR, COL_VISIT_TABULAR} - set(df_tabular_tmp.columns)) == 0:
-            raise RuntimeError(f'Tabular file {fpath_tabular} does not contain required columns')
-        df_tabular: pd.DataFrame = pd.concat([df_tabular, df_tabular_tmp])
-    df_tabular = df_tabular.drop_duplicates([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])
+    df_assessments = None
+    for fpath_assessments in fpaths_assessments:
+        df_assessments_tmp = pd.read_csv(fpath_assessments, dtype=str)
+        if not len({COL_SUBJECT_TABULAR, COL_VISIT_TABULAR} - set(df_assessments_tmp.columns)) == 0:
+            warnings.warn(f'Assessment file {fpath_assessments} does not contain required columns. Ignoring')
+            continue
+        df_assessments: pd.DataFrame = pd.concat([df_assessments, df_assessments_tmp])
+    df_assessments = df_assessments.drop_duplicates([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])
+    if len(df_assessments) == 0:
+        raise RuntimeError(f'No valid assessment files found in {fpaths_assessments}')
 
     with fpath_descriptions.open('r') as file_descriptions:
         datatype_descriptions_map: dict = json.load(file_descriptions)
@@ -135,20 +137,23 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     # ===== format tabular data =====
 
     # rename columns
-    df_tabular = df_tabular.rename(columns={
+    df_assessments = df_assessments.rename(columns={
         COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST, 
         COL_VISIT_TABULAR: COL_VISIT_MANIFEST,
     })
     df_group = df_group.rename(columns={
         COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST,
     })
+    df_demographics = df_demographics.rename(columns={
+        COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST,
+    })
 
     # add group info to tabular dataframe
-    df_tabular = df_tabular.merge(df_group[[COL_SUBJECT_MANIFEST, COL_GROUP_TABULAR]], on=COL_SUBJECT_MANIFEST, how='left')
-    if df_tabular[COL_GROUP_TABULAR].isna().any():
+    df_assessments = df_assessments.merge(df_group[[COL_SUBJECT_MANIFEST, COL_GROUP_TABULAR]], on=COL_SUBJECT_MANIFEST, how='left')
+    if df_assessments[COL_GROUP_TABULAR].isna().any():
         
-        df_tabular_missing_group = df_tabular.loc[
-            df_tabular[COL_GROUP_TABULAR].isna(),
+        df_tabular_missing_group = df_assessments.loc[
+            df_assessments[COL_GROUP_TABULAR].isna(),
             COL_SUBJECT_MANIFEST,
         ]
         print(
@@ -169,12 +174,12 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
             except ValueError:
                 continue
 
-            df_tabular.loc[idx, COL_GROUP_TABULAR] = group
+            df_assessments.loc[idx, COL_GROUP_TABULAR] = group
 
-        if df_tabular[COL_GROUP_TABULAR].isna().any():
+        if df_assessments[COL_GROUP_TABULAR].isna().any():
             warnings.warn(
                 '\nDid not successfully fill in missing group values using imaging data'
-                f'\n{df_tabular.loc[df_tabular[COL_GROUP_TABULAR].isna()]}')
+                f'\n{df_assessments.loc[df_assessments[COL_GROUP_TABULAR].isna()]}')
 
         else:
             print('Successfully filled in missing group values using imaging data')
@@ -230,33 +235,34 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     
     print(
         '\nProcessing tabular data...'
-        f'\tShape: {df_tabular.shape}'
+        f'\tShape: {df_assessments.shape}'
     )
     print('\nCohort composition:'
-        f'\n{df_tabular[COL_GROUP_TABULAR].value_counts(dropna=False)}\n'
+        f'\n{df_assessments[COL_GROUP_TABULAR].value_counts(dropna=False)}\n'
     )
 
     # only keep subjects in certain groups
-    n_tab_before_subject_drop = df_tabular.shape[0]
-    df_tabular = df_tabular.loc[df_tabular[COL_GROUP_TABULAR].isin(GROUPS_KEEP)]
+    n_tab_before_subject_drop = df_assessments.shape[0]
+    df_assessments = df_assessments.loc[df_assessments[COL_GROUP_TABULAR].isin(GROUPS_KEEP)]
     print(
-        f'\nDropped {n_tab_before_subject_drop - df_tabular.shape[0]} tabular entries'
+        f'\nDropped {n_tab_before_subject_drop - df_assessments.shape[0]} tabular entries'
         f' because the subject\'s research group was not in {GROUPS_KEEP}\n'
     )
 
     # merge on subject and visit
     key_merge = '_merge'
-    df_manifest = df_tabular.merge(df_imaging, how='outer', 
+    df_manifest = df_assessments.merge(df_imaging, how='outer', 
                                    on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST],
                                    indicator=key_merge)
     
     # warning if missing tabular information
-    df_imaging_without_tabular = df_manifest.loc[df_manifest[key_merge] == 'right_only']
-    if len(df_imaging_without_tabular) > 0:
-        warnings.warn(
-            '\nSome imaging entries have no corresponding tabular information'
-            f'\n{df_imaging_without_tabular}'
+    subjects_without_demographic = set(df_manifest[COL_SUBJECT_MANIFEST]) - set(df_assessments[COL_SUBJECT_MANIFEST])
+    if len(subjects_without_demographic) > 0:
+        print(
+            '\nSome subjects have imaging data but no demographic information'
+            f'\n{subjects_without_demographic}. Dropping them from the manifest'
         )
+    df_manifest = df_manifest.loc[~df_manifest[COL_SUBJECT_MANIFEST].isin(subjects_without_demographic)]
 
     # replace NA datatype by empty list
     df_manifest[COL_DATATYPE_MANIFEST] = df_manifest[COL_DATATYPE_MANIFEST].apply(
@@ -313,7 +319,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
         if df_manifest.equals(df_manifest_old):
             print(f'\nNo change from existing manifest. Will not write new manifest.')
             if make_release:
-                make_new_release(dpath_dataset, dpath_input, fnames_keep_release)
+                make_new_release(dpath_dataset, dpaths_include_in_release)
             return
         fpath_manifest_symlink.unlink()
 
@@ -325,7 +331,7 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     save_backup(df_manifest, fpath_manifest_symlink, DNAME_BACKUPS_MANIFEST)
 
     if make_release:
-        make_new_release(dpath_dataset, dpath_input, fnames_keep_release)
+        make_new_release(dpath_dataset, dpaths_include_in_release)
 
 def load_and_process_df_imaging(fpath_imaging):
 
@@ -373,13 +379,15 @@ def get_datatype_list(descriptions: pd.Series, description_datatype_map, seen=No
 
     return datatypes
 
-def make_new_release(dpath_dataset: Path, dpath_input: Path, fnames_keep: list[str]):
+def make_new_release(dpath_dataset: Path, dpaths_include):
 
     def ignore_func(dpath, fnames):
-        if Path(dpath).samefile(dpath_input):
-            return [fname for fname in fnames if fname not in fnames_keep]
+        if Path(dpath) in dpaths_include:
+            return fnames
         else:
             return []
+        
+    dpaths_include = [Path(dpath) for dpath in dpaths_include]
 
     date_str = datetime.datetime.now().strftime('%Y_%m_%d')
     dpath_source = dpath_dataset / DPATH_TABULAR_RELATIVE
@@ -399,24 +407,13 @@ if __name__ == '__main__':
     HELPTEXT = f"""
     Script to generate manifest file for PPMI dataset.
     Requires an imaging data availability info file that can be downloaded from 
-    the LONI IDA, the PPMI participant status info files, as well as at least 
-    one PPMI tabular file with subject and visit columns. 
-    All these files should be in <DATASET_ROOT>/{DPATH_INPUT_RELATIVE}.
+    the LONI IDA, as well as the demographic information CSV file from the PPMI website.
+    The name of these files should be specified in the global config file.
     """
     parser = argparse.ArgumentParser(description=HELPTEXT)
     parser.add_argument(
         '--global_config', type=str, required=True,
         help='path to global config file for your mr_proc dataset (required)')
-    parser.add_argument(
-        '--imaging_filename', type=str, default=DEFAULT_IMAGING_FILENAME,
-        help=('name of file containing imaging data availability info, with columns'
-              f' "{COL_SUBJECT_IMAGING}", "{COL_VISIT_IMAGING}", "{COL_GROUP_IMAGING}", and "{COL_DESCRIPTION_IMAGING}"'
-              f' (default: {DEFAULT_IMAGING_FILENAME})'))
-    parser.add_argument(
-        '--group_filename', type=str, default=DEFAULT_GROUP_FILENAME,
-        help=('name of file containing participant group info, with columns'
-              f' "{COL_SUBJECT_TABULAR}" and "{COL_GROUP_TABULAR}"'
-              f' (default: {DEFAULT_GROUP_FILENAME})'))
     parser.add_argument(
         FLAG_REGENERATE, action='store_true',
         help=('regenerate entire manifest'
@@ -431,14 +428,9 @@ if __name__ == '__main__':
 
     # parse
     global_config_file = args.global_config
-    imaging_filename = args.imaging_filename
-    group_filename = args.group_filename
     make_release = args.make_release
     regenerate = getattr(args, FLAG_REGENERATE.lstrip('-'))
 
-    tabular_filenames = TABULAR_FILENAMES
-
     warnings.formatwarning = warning_on_one_line
 
-    run(global_config_file, imaging_filename, tabular_filenames, group_filename, 
-        regenerate=regenerate, make_release=make_release)
+    run(global_config_file, regenerate=regenerate, make_release=make_release)
