@@ -73,6 +73,8 @@ COL_GROUP_TABULAR = 'COHORT_DEFINITION'
 # global config keys
 GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
 GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
+GLOBAL_CONFIG_VISITS = 'VISITS'
+GLOBAL_CONFIG_TABULAR = 'TABULAR'
 
 # flags
 FLAG_REGENERATE = '--regenerate'
@@ -88,10 +90,10 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     dpath_demographics = dpath_dataset / DPATH_DEMOGRAPHICS_RELATIVE
     dpath_assessments = dpath_dataset / DPATH_ASSESSMENTS_RELATIVE
     dpath_other = dpath_dataset / DPATH_OTHER_RELATIVE
-    fpath_demographics = dpath_demographics / global_config['TABULAR']['DEMOGRAPHICS']['DEMOGRAPHICS']['FILENAME']
-    fpaths_assessments = [dpath_assessments / file_info['FILENAME'] for file_info in global_config['TABULAR']['ASSESSMENTS'].values()]
-    fpath_imaging = dpath_other / global_config['TABULAR']['OTHER']['IMAGING_INFO']['FILENAME']
-    fpath_group = dpath_assessments / global_config['TABULAR']['ASSESSMENTS']['COHORT_DEFINITION']['FILENAME']
+    fpath_demographics = dpath_demographics / global_config[GLOBAL_CONFIG_TABULAR]['DEMOGRAPHICS']['DEMOGRAPHICS']['FILENAME']
+    fpaths_assessments = [dpath_assessments / file_info['FILENAME'] for file_info in global_config[GLOBAL_CONFIG_TABULAR]['ASSESSMENTS'].values()]
+    fpath_imaging = dpath_other / global_config[GLOBAL_CONFIG_TABULAR]['OTHER']['IMAGING_INFO']['FILENAME']
+    fpath_group = dpath_assessments / global_config[GLOBAL_CONFIG_TABULAR]['ASSESSMENTS']['COHORT_DEFINITION']['FILENAME']
     fpath_descriptions = Path(__file__).parent / FNAME_DESCRIPTIONS
     fpath_manifest_symlink = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
     dpaths_include_in_release = [dpath_demographics, dpath_assessments, dpath_other]
@@ -249,6 +251,9 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
         f' because the subject\'s research group was not in {GROUPS_KEEP}\n'
     )
 
+    # only keep visits listed in global configs
+    df_assessments = df_assessments.loc[df_assessments[COL_VISIT_MANIFEST].isin(global_config[GLOBAL_CONFIG_VISITS])]
+
     # merge on subject and visit
     key_merge = '_merge'
     df_manifest = df_assessments.merge(df_imaging, how='outer', 
@@ -312,7 +317,11 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
 
     # reorder columns and sort
     df_manifest = df_manifest[COLS_MANIFEST]
-    df_manifest = df_manifest.sort_values([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]).reset_index(drop=True)
+    df_manifest = df_manifest.sort_values(
+        COL_VISIT_MANIFEST, 
+        key=(lambda visits: visits.apply(global_config[GLOBAL_CONFIG_VISITS].index)),
+    )
+    df_manifest = df_manifest.sort_values(COL_SUBJECT_MANIFEST, kind='stable').reset_index(drop=True)
 
     # do not write file if there are no changes from previous manifest
     if df_manifest_old is not None:
