@@ -90,15 +90,15 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     dpath_demographics = dpath_dataset / DPATH_DEMOGRAPHICS_RELATIVE
     dpath_assessments = dpath_dataset / DPATH_ASSESSMENTS_RELATIVE
     dpath_other = dpath_dataset / DPATH_OTHER_RELATIVE
-    fpath_demographics = dpath_demographics / global_config[GLOBAL_CONFIG_TABULAR]['DEMOGRAPHICS']['DEMOGRAPHICS']['FILENAME']
-    fpaths_assessments = [dpath_assessments / file_info['FILENAME'] for file_info in global_config[GLOBAL_CONFIG_TABULAR]['ASSESSMENTS'].values()]
+    fpaths_demographics = list({dpath_demographics / file_info['FILENAME'] for file_info in global_config[GLOBAL_CONFIG_TABULAR]['DEMOGRAPHICS'].values()})
+    fpaths_assessments = list({dpath_assessments / file_info['FILENAME'] for file_info in global_config[GLOBAL_CONFIG_TABULAR]['ASSESSMENTS'].values()})
     fpath_imaging = dpath_other / global_config[GLOBAL_CONFIG_TABULAR]['OTHER']['IMAGING_INFO']['FILENAME']
     fpath_group = dpath_assessments / global_config[GLOBAL_CONFIG_TABULAR]['ASSESSMENTS']['COHORT_DEFINITION']['FILENAME']
     fpath_descriptions = Path(__file__).parent / FNAME_DESCRIPTIONS
     fpath_manifest_symlink = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
     dpaths_include_in_release = [dpath_demographics, dpath_assessments, dpath_other]
 
-    for fpath in [fpath_imaging, fpath_demographics, *fpaths_assessments, fpath_group, fpath_descriptions]:
+    for fpath in [fpath_imaging, *fpaths_demographics, *fpaths_assessments, fpath_group, fpath_descriptions]:
         if not fpath.exists():
             raise RuntimeError(f'File {fpath} does not exist')
 
@@ -109,19 +109,10 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
         df_manifest_old = None
 
     # load data dfs and heuristics json
-    df_demographics = pd.read_csv(fpath_demographics)
     df_imaging = load_and_process_df_imaging(fpath_imaging)
     df_group = pd.read_csv(fpath_group, dtype=str)
-    df_assessments = None
-    for fpath_assessments in fpaths_assessments:
-        df_assessments_tmp = pd.read_csv(fpath_assessments, dtype=str)
-        if not len({COL_SUBJECT_TABULAR, COL_VISIT_TABULAR} - set(df_assessments_tmp.columns)) == 0:
-            warnings.warn(f'Assessment file {fpath_assessments} does not contain required columns. Ignoring')
-            continue
-        df_assessments: pd.DataFrame = pd.concat([df_assessments, df_assessments_tmp])
-    df_assessments = df_assessments.drop_duplicates([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])
-    if len(df_assessments) == 0:
-        raise RuntimeError(f'No valid assessment files found in {fpaths_assessments}')
+    df_demographics = load_and_get_unique(fpaths_demographics, [COL_SUBJECT_TABULAR])
+    df_assessments = load_and_get_unique(fpaths_assessments, [COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])
 
     with fpath_descriptions.open('r') as file_descriptions:
         datatype_descriptions_map: dict = json.load(file_descriptions)
@@ -265,7 +256,7 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     if len(subjects_without_demographic) > 0:
         print(
             '\nSome subjects have imaging data but no demographic information'
-            f'\n{subjects_without_demographic}. Dropping them from the manifest'
+            f'\n{subjects_without_demographic}, dropping them from the manifest'
         )
     df_manifest = df_manifest.loc[~df_manifest[COL_SUBJECT_MANIFEST].isin(subjects_without_demographic)]
 
@@ -376,6 +367,22 @@ def load_and_process_df_imaging(fpath_imaging):
             f'Found group without mapping in GROUP_IMAGING_MAP: {ex.args[0]}')
     
     return df_imaging
+
+def load_and_get_unique(fpaths, cols):
+
+    dfs = []
+    for fpath in fpaths:
+        df_tmp = pd.read_csv(fpath, dtype=str)
+        if not len(set(cols) - set(df_tmp.columns)) == 0:
+            warnings.warn(f'File {fpath} does not contain expected column(s) ({cols}), ignoring\n')
+            continue
+        dfs.append(df_tmp[cols])
+
+    if len(dfs) == 0:
+        raise RuntimeError(f'No valid file with columns ({cols}) found in {fpaths}')
+    df: pd.DataFrame = pd.concat(dfs)
+    df = df.drop_duplicates()
+    return df
 
 def get_datatype_list(descriptions: pd.Series, description_datatype_map, seen=None):
 
