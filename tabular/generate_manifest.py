@@ -12,6 +12,7 @@ import pandas as pd
 
 from tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
 from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, get_all_descriptions
+from tabular.ppmi_utils import load_tabular_df, COL_GROUP_TABULAR, COL_SUBJECT_TABULAR, COL_VISIT_TABULAR
 from workflow.utils import (
     COL_BIDS_ID_MANIFEST,
     COL_DATATYPE_MANIFEST,
@@ -66,10 +67,6 @@ GROUP_IMAGING_MAP = {
 }
 DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
 
-COL_SUBJECT_TABULAR = 'PATNO'
-COL_VISIT_TABULAR = 'EVENT_ID'
-COL_GROUP_TABULAR = 'COHORT_DEFINITION'
-
 # global config keys
 GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
 GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
@@ -111,6 +108,7 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     # load data dfs and heuristics json
     df_imaging = load_and_process_df_imaging(fpath_imaging)
     df_group = pd.read_csv(fpath_group, dtype=str)
+    # TODO this doesn't get all subject-visit pairs
     df_demographics = load_and_get_unique(fpaths_demographics, [COL_SUBJECT_TABULAR])
     df_assessments = load_and_get_unique(fpaths_assessments, [COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])
 
