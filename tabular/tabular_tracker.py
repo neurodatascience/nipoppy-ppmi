@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 import argparse
 import json
-import warnings
-from functools import reduce
 from pathlib import Path
 
 import pandas as pd
@@ -17,8 +15,13 @@ from workflow.utils import (
 )
 from tabular.ppmi_utils import get_tabular_info
 
+# TODO import from workflow.utils (mr_proc repo)
+FPATH_ASSESSMENTS_RELATIVE = Path('tabular/assessments/assessments.csv')
 FPATH_BAGEL_RELATIVE = Path('tabular/bagel.csv')
-DNAME_BACKUPS_BAGEL = '.bagels' # TODO import from workflow.utils (mr_proc repo)
+FPATH_DEMOGRAPHICS_RELATIVE = Path('tabular/demographics/demographics.csv')
+DNAME_BACKUPS_ASSESSMENTS = '.assessments'
+DNAME_BACKUPS_DEMOGRAPHICS = '.demographics'
+DNAME_BACKUPS_BAGEL = '.bagels'
 
 def run(fpath_global_config):
 
@@ -26,6 +29,8 @@ def run(fpath_global_config):
     with Path(fpath_global_config).open('r') as file_global_config:
         global_config = json.load(file_global_config)
     dataset_root = Path(global_config['DATASET_ROOT'])
+    fpath_demographics = dataset_root / FPATH_DEMOGRAPHICS_RELATIVE
+    fpath_assessments = dataset_root / FPATH_ASSESSMENTS_RELATIVE
     fpath_bagel = dataset_root / FPATH_BAGEL_RELATIVE
     visits = global_config['VISITS']
 
@@ -34,81 +39,49 @@ def run(fpath_global_config):
     df_manifest = load_manifest(fpath_manifest)
 
     # initialize tracking info
-    df_bagel = df_manifest[[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]].copy()
+    df_index = df_manifest[[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]].copy()
 
-    dfs_demographics, dfs_demographics_static = get_tabular_info(
+    # combine demographics info
+    df_demographics = process_tabular_and_save(
         global_config['TABULAR']['DEMOGRAPHICS'],
         dataset_root / 'tabular' / 'demographics',
-        visits=visits,
+        df_index,
+        visits,
+        fpath_demographics, 
+        DNAME_BACKUPS_DEMOGRAPHICS, 
+        'demographics',
     )
 
-    dfs_assessments, dfs_assessments_static = get_tabular_info(
+    # combine assessments info
+    df_assessments = process_tabular_and_save(
         global_config['TABULAR']['ASSESSMENTS'],
         dataset_root / 'tabular' / 'assessments',
-        visits=visits,
+        df_index,
+        visits,
+        fpath_assessments,
+        DNAME_BACKUPS_ASSESSMENTS,
+        'assessments',
     )
 
-    # merge subject-visit dfs first
-    # then merge with subject-only dfs
-    df_static = merge_dfs(dfs_demographics_static + dfs_assessments_static, merge_on=[COL_SUBJECT_MANIFEST])
-    df_non_static = merge_dfs(dfs_demographics + dfs_assessments, merge_on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST])
-
-    # print('non-static:')
-    # print(df_non_static)
-    # print('\nstatic:')
-    # print(df_static)
-    # df_static.to_csv('df_static.csv', index=False)
-    # df_non_static.to_csv('df_non_static.csv', index=False)
-
-    # df_all = df_non_static.merge(df_static, on=COL_SUBJECT_MANIFEST, how='outer')
-
-    # print('\nall:')
-    # print(df_all)
-    # df_all.to_csv('df_all.csv', index=False)
-
-    # df_bagel = add_cols_to_bagel_and_check(df_bagel, df_all, merge_on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST], merge_how='left')
-    # df_bagel = add_cols_to_bagel_and_check(df_bagel, df_non_static, merge_on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST], merge_how='outer')
-
-    # for participant_id in df_static[COL_SUBJECT_MANIFEST]:
-
-    df_bagel = add_cols_to_bagel_and_check(df_bagel, df_non_static, merge_on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST], merge_how='outer')
-    df_bagel = add_cols_to_bagel_and_check(df_bagel, df_static, merge_on=[COL_SUBJECT_MANIFEST], merge_how='left')
-    
-    df_bagel = df_bagel.drop_duplicates()
+    # combine everything into a single bagel
+    df_bagel = df_demographics.merge(df_assessments, on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST], how='outer')
+    df_bagel = df_bagel.drop_duplicates().reset_index(drop=True)
     df_bagel.insert(1, COL_BIDS_ID_MANIFEST, df_bagel[COL_SUBJECT_MANIFEST].apply(participant_id_to_bids_id))
-    # df_bagel[COL_BIDS_ID_MANIFEST] = df_bagel[COL_SUBJECT_MANIFEST].apply(participant_id_to_bids_id)
-    print(f'Generated bagel: {df_bagel.shape}')
-
-    # TODO do not write new bagel if no changes were made
+    print(f'\nGenerated bagel: {df_bagel.shape}')
 
     # save bagel
-    save_backup(df_bagel, fpath_bagel, DNAME_BACKUPS_BAGEL)
-
-def merge_dfs(dfs, merge_on, merge_how='outer'):
-    if len(dfs) == 0:
-        df = None
-    elif len(dfs) == 1:
-        df = dfs[0]
+    if fpath_bagel.exists() and pd.read_csv(fpath_bagel, dtype=str).equals(df_bagel):
+        print('No changes to bagel file. Will not write new file.')
     else:
-        df = reduce(lambda left, right: pd.merge(left, right, on=merge_on, how=merge_how), dfs)
+        save_backup(df_bagel, fpath_bagel, DNAME_BACKUPS_BAGEL)
+
+def process_tabular_and_save(info_dict, dpath_parent, df_index, visits, fpath, dname_backups, tag):
+    df = get_tabular_info(info_dict, dpath_parent, df_index=df_index, visits=visits)
+    if Path(fpath).exists() and pd.read_csv(fpath, dtype=str).equals(df):
+        print(f'No changes to {tag} file. Will not write new file.')
+    else:
+        save_backup(df, fpath, dname_backups)
     return df
-
-def add_cols_to_bagel_and_check(df_bagel, df_to_add, merge_on, merge_how='outer'):
-    col_indicator = '_merge'
-
-    if df_to_add is None:
-        return df_bagel
-    
-    df_merged = df_bagel.merge(df_to_add, on=merge_on, how=merge_how, indicator=True)
-
-    if (df_merged[col_indicator] == 'right_only').any():
-        warnings.warn(
-            'Tabular dataframes have rows that do not match the manifest'
-            '. Something is probably wrong with the manifest'
-            f'.\n{df_merged.loc[df_merged[col_indicator] == "right_only"]}')
-
-    df_merged = df_merged.drop(columns=[col_indicator])
-    return df_merged
 
 if __name__ == '__main__':
     # argparse
