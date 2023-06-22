@@ -12,7 +12,7 @@ import pandas as pd
 
 from tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
 from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, get_all_descriptions
-from tabular.ppmi_utils import load_tabular_df, COL_GROUP_TABULAR, COL_SUBJECT_TABULAR, COL_VISIT_TABULAR
+from tabular.ppmi_utils import get_tabular_info, COL_GROUP_TABULAR, COL_SUBJECT_TABULAR, COL_VISIT_TABULAR
 from workflow.utils import (
     COL_BIDS_ID_MANIFEST,
     COL_DATATYPE_MANIFEST,
@@ -32,6 +32,7 @@ from workflow.utils import (
 GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD']
 
 # paths relative to DATASET_ROOT
+# TODO refactor global configs
 DPATH_TABULAR_RELATIVE = Path('tabular')
 DPATH_ASSESSMENTS_RELATIVE = DPATH_TABULAR_RELATIVE / 'assessments'
 DPATH_DEMOGRAPHICS_RELATIVE = DPATH_TABULAR_RELATIVE / 'demographics'
@@ -39,8 +40,7 @@ DPATH_OTHER_RELATIVE = DPATH_TABULAR_RELATIVE / 'other'
 DPATH_RELEASES_RELATIVE = Path('releases')
 DPATH_OUTPUT_RELATIVE = DPATH_TABULAR_RELATIVE
 
-KEY_GROUP = 'GROUP' # global config key
-
+# TODO move to ppmi_utils.py
 COL_SUBJECT_IMAGING = 'Subject ID'
 COL_VISIT_IMAGING = 'Visit'
 COL_GROUP_IMAGING = 'Research Group'
@@ -82,6 +82,7 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     with open(global_config_file) as file:
         global_config = json.load(file)
     dpath_dataset = Path(global_config[GLOBAL_CONFIG_DATASET_ROOT])
+    visits = global_config[GLOBAL_CONFIG_VISITS]
 
     # generate filepaths
     dpath_demographics = dpath_dataset / DPATH_DEMOGRAPHICS_RELATIVE
@@ -90,7 +91,7 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     fpaths_demographics = list({dpath_demographics / file_info['FILENAME'] for file_info in global_config[GLOBAL_CONFIG_TABULAR]['DEMOGRAPHICS'].values()})
     fpaths_assessments = list({dpath_assessments / file_info['FILENAME'] for file_info in global_config[GLOBAL_CONFIG_TABULAR]['ASSESSMENTS'].values()})
     fpath_imaging = dpath_other / global_config[GLOBAL_CONFIG_TABULAR]['OTHER']['IMAGING_INFO']['FILENAME']
-    fpath_group = dpath_assessments / global_config[GLOBAL_CONFIG_TABULAR]['ASSESSMENTS']['COHORT_DEFINITION']['FILENAME']
+    fpath_group = dpath_demographics / global_config[GLOBAL_CONFIG_TABULAR]['DEMOGRAPHICS']['COHORT_DEFINITION']['FILENAME']
     fpath_descriptions = Path(__file__).parent / FNAME_DESCRIPTIONS
     fpath_manifest_symlink = dpath_dataset / DPATH_OUTPUT_RELATIVE / FNAME_MANIFEST
     dpaths_include_in_release = [dpath_demographics, dpath_assessments, dpath_other]
@@ -108,9 +109,22 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     # load data dfs and heuristics json
     df_imaging = load_and_process_df_imaging(fpath_imaging)
     df_group = pd.read_csv(fpath_group, dtype=str)
-    # TODO this doesn't get all subject-visit pairs
-    df_demographics = load_and_get_unique(fpaths_demographics, [COL_SUBJECT_TABULAR])
-    df_assessments = load_and_get_unique(fpaths_assessments, [COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])
+
+    # this is a hack to get static and non-static 
+    # data combining demographic and assessment data
+    tabular_info_dict = {}
+    for tabular_key, dname_parent in zip(['DEMOGRAPHICS', 'ASSESSMENTS'], ['demographics', 'assessments']):
+        for col_name, info in global_config['TABULAR'][tabular_key].items():
+            info['FILENAME'] = Path(dname_parent) / info['FILENAME']
+            if col_name in tabular_info_dict:
+                raise RuntimeError(f'Tabular column name {col_name} is duplicated in the global configs file')
+            tabular_info_dict[col_name] = info
+
+    df_static, df_nonstatic = get_tabular_info(
+        tabular_info_dict,
+        dpath_dataset / 'tabular',
+        visits=visits,
+    )
 
     with fpath_descriptions.open('r') as file_descriptions:
         datatype_descriptions_map: dict = json.load(file_descriptions)
@@ -128,23 +142,23 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     # ===== format tabular data =====
 
     # rename columns
-    df_assessments = df_assessments.rename(columns={
+    df_nonstatic = df_nonstatic.rename(columns={
         COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST, 
         COL_VISIT_TABULAR: COL_VISIT_MANIFEST,
     })
     df_group = df_group.rename(columns={
         COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST,
     })
-    df_demographics = df_demographics.rename(columns={
+    df_static = df_static.rename(columns={
         COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST,
     })
 
     # add group info to tabular dataframe
-    df_assessments = df_assessments.merge(df_group[[COL_SUBJECT_MANIFEST, COL_GROUP_TABULAR]], on=COL_SUBJECT_MANIFEST, how='left')
-    if df_assessments[COL_GROUP_TABULAR].isna().any():
+    df_nonstatic = df_nonstatic.merge(df_group[[COL_SUBJECT_MANIFEST, COL_GROUP_TABULAR]], on=COL_SUBJECT_MANIFEST, how='left')
+    if df_nonstatic[COL_GROUP_TABULAR].isna().any():
         
-        df_tabular_missing_group = df_assessments.loc[
-            df_assessments[COL_GROUP_TABULAR].isna(),
+        df_tabular_missing_group = df_nonstatic.loc[
+            df_nonstatic[COL_GROUP_TABULAR].isna(),
             COL_SUBJECT_MANIFEST,
         ]
         print(
@@ -165,12 +179,12 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
             except ValueError:
                 continue
 
-            df_assessments.loc[idx, COL_GROUP_TABULAR] = group
+            df_nonstatic.loc[idx, COL_GROUP_TABULAR] = group
 
-        if df_assessments[COL_GROUP_TABULAR].isna().any():
+        if df_nonstatic[COL_GROUP_TABULAR].isna().any():
             warnings.warn(
                 '\nDid not successfully fill in missing group values using imaging data'
-                f'\n{df_assessments.loc[df_assessments[COL_GROUP_TABULAR].isna()]}')
+                f'\n{df_nonstatic.loc[df_nonstatic[COL_GROUP_TABULAR].isna()]}')
 
         else:
             print('Successfully filled in missing group values using imaging data')
@@ -226,31 +240,28 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     
     print(
         '\nProcessing tabular data...'
-        f'\tShape: {df_assessments.shape}'
+        f'\tShape: {df_nonstatic.shape}'
     )
     print('\nCohort composition:'
-        f'\n{df_assessments[COL_GROUP_TABULAR].value_counts(dropna=False)}\n'
+        f'\n{df_nonstatic[COL_GROUP_TABULAR].value_counts(dropna=False)}\n'
     )
 
     # only keep subjects in certain groups
-    n_tab_before_subject_drop = df_assessments.shape[0]
-    df_assessments = df_assessments.loc[df_assessments[COL_GROUP_TABULAR].isin(GROUPS_KEEP)]
+    n_tab_before_subject_drop = df_nonstatic.shape[0]
+    df_nonstatic = df_nonstatic.loc[df_nonstatic[COL_GROUP_TABULAR].isin(GROUPS_KEEP)]
     print(
-        f'\nDropped {n_tab_before_subject_drop - df_assessments.shape[0]} tabular entries'
+        f'\nDropped {n_tab_before_subject_drop - df_nonstatic.shape[0]} tabular entries'
         f' because the subject\'s research group was not in {GROUPS_KEEP}\n'
     )
 
-    # only keep visits listed in global configs
-    df_assessments = df_assessments.loc[df_assessments[COL_VISIT_MANIFEST].isin(global_config[GLOBAL_CONFIG_VISITS])]
-
     # merge on subject and visit
     key_merge = '_merge'
-    df_manifest = df_assessments.merge(df_imaging, how='outer', 
+    df_manifest = df_nonstatic.merge(df_imaging, how='outer', 
                                    on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST],
                                    indicator=key_merge)
     
     # warning if missing tabular information
-    subjects_without_demographic = set(df_manifest[COL_SUBJECT_MANIFEST]) - set(df_assessments[COL_SUBJECT_MANIFEST])
+    subjects_without_demographic = set(df_manifest[COL_SUBJECT_MANIFEST]) - set(df_nonstatic[COL_SUBJECT_MANIFEST])
     if len(subjects_without_demographic) > 0:
         print(
             '\nSome subjects have imaging data but no demographic information'
@@ -365,22 +376,6 @@ def load_and_process_df_imaging(fpath_imaging):
             f'Found group without mapping in GROUP_IMAGING_MAP: {ex.args[0]}')
     
     return df_imaging
-
-def load_and_get_unique(fpaths, cols):
-
-    dfs = []
-    for fpath in fpaths:
-        df_tmp = pd.read_csv(fpath, dtype=str)
-        if not len(set(cols) - set(df_tmp.columns)) == 0:
-            warnings.warn(f'File {fpath} does not contain expected column(s) ({cols}), ignoring\n')
-            continue
-        dfs.append(df_tmp[cols])
-
-    if len(dfs) == 0:
-        raise RuntimeError(f'No valid file with columns ({cols}) found in {fpaths}')
-    df: pd.DataFrame = pd.concat(dfs)
-    df = df.drop_duplicates()
-    return df
 
 def get_datatype_list(descriptions: pd.Series, description_datatype_map, seen=None):
 

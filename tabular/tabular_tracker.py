@@ -13,7 +13,7 @@ from workflow.utils import (
     save_backup,
     participant_id_to_bids_id,
 )
-from tabular.ppmi_utils import get_tabular_info
+from tabular.ppmi_utils import get_tabular_info_and_merge
 
 # TODO import from workflow.utils (mr_proc repo)
 FPATH_ASSESSMENTS_RELATIVE = Path('tabular/assessments/assessments.csv')
@@ -38,14 +38,14 @@ def run(fpath_global_config):
     fpath_manifest = dataset_root / 'tabular' / 'mr_proc_manifest.csv'
     df_manifest = load_manifest(fpath_manifest)
 
-    # initialize tracking info
-    df_index = df_manifest[[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]].copy()
+    # only keep indexing cols
+    df_manifest = df_manifest[[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]]
 
     # combine demographics info
     df_demographics = process_tabular_and_save(
         global_config['TABULAR']['DEMOGRAPHICS'],
         dataset_root / 'tabular' / 'demographics',
-        df_index,
+        df_manifest,
         visits,
         fpath_demographics, 
         DNAME_BACKUPS_DEMOGRAPHICS, 
@@ -56,7 +56,7 @@ def run(fpath_global_config):
     df_assessments = process_tabular_and_save(
         global_config['TABULAR']['ASSESSMENTS'],
         dataset_root / 'tabular' / 'assessments',
-        df_index,
+        df_manifest,
         visits,
         fpath_assessments,
         DNAME_BACKUPS_ASSESSMENTS,
@@ -75,8 +75,8 @@ def run(fpath_global_config):
     else:
         save_backup(df_bagel, fpath_bagel, DNAME_BACKUPS_BAGEL)
 
-def process_tabular_and_save(info_dict, dpath_parent, df_index, visits, fpath, dname_backups, tag):
-    df = get_tabular_info(info_dict, dpath_parent, df_index=df_index, visits=visits)
+def process_tabular_and_save(info_dict, dpath_parent, df_manifest, visits, fpath, dname_backups, tag):
+    df = get_tabular_info_and_merge(info_dict, dpath_parent, df_manifest=df_manifest, visits=visits)
     if Path(fpath).exists() and pd.read_csv(fpath, dtype=str).equals(df):
         print(f'No changes to {tag} file. Will not write new file.')
     else:

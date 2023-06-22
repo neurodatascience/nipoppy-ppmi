@@ -23,8 +23,26 @@ def load_tabular_df(fpath, visits=None):
         df = df[df[COL_VISIT_MANIFEST].isin(visits)]
     return df
 
-def get_tabular_info(info_dict, dpath_parent, df_index=None, visits=None):
+def get_tabular_info_and_merge(info_dict, dpath_parent, df_manifest=None, visits=None):
     merge_how_with_index = 'outer' # 'outer' or 'left' (should be no difference if the index/manifest is correct)
+    
+    df_static, df_nonstatic = get_tabular_info(info_dict, dpath_parent, visits=visits)
+
+    if df_nonstatic is None:
+        raise RuntimeError('At least one dataframe must contain both subject and visit information')
+    elif df_static is None:
+        return df_nonstatic
+    else:
+        # merge again
+        check = (df_manifest is not None)
+        if df_manifest is None:
+            df_manifest = df_nonstatic[[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]]
+        df_nonstatic = merge_and_check(df_manifest, df_nonstatic, on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST], how=merge_how_with_index, check=check)
+        df_static = merge_and_check(df_manifest, df_static, on=[COL_SUBJECT_MANIFEST], how=merge_how_with_index, check=check)
+        df_merged = merge_and_check(df_static, df_nonstatic, on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST], how='inner', check=check)
+        return df_merged
+    
+def get_tabular_info(info_dict, dpath_parent, visits=None):
     dfs_static = [] # no visit info (doesn't change over time)
     dfs_nonstatic = []
     for colname_in_bagel, col_info in info_dict.items():
@@ -49,18 +67,7 @@ def get_tabular_info(info_dict, dpath_parent, df_index=None, visits=None):
     df_static = merge_df_list(dfs_static, on=[COL_SUBJECT_MANIFEST], how='outer')
     df_nonstatic = merge_df_list(dfs_nonstatic, on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST], how='outer')
 
-    if df_nonstatic is None:
-        raise RuntimeError('At least one dataframe must contain both subject and visit information')
-    elif df_static is None:
-        return df_nonstatic
-    else:
-        # merge again
-        if df_index is None:
-            df_index = df_nonstatic[[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]]
-        df_nonstatic = merge_and_check(df_index, df_nonstatic, on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST], how=merge_how_with_index)
-        df_static = merge_and_check(df_index, df_static, on=[COL_SUBJECT_MANIFEST], how=merge_how_with_index)
-        df_merged = merge_and_check(df_static, df_nonstatic, on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST], how='inner')
-        return df_merged
+    return df_static, df_nonstatic
     
 def merge_df_list(dfs, on, how='outer') -> pd.DataFrame:
     if len(dfs) == 0:
@@ -71,7 +78,7 @@ def merge_df_list(dfs, on, how='outer') -> pd.DataFrame:
         df = reduce(lambda left, right: pd.merge(left, right, on=on, how=how), dfs)
     return df
 
-def merge_and_check(df1: pd.DataFrame, df2: pd.DataFrame, on, how='outer', check_condition='right_only'):
+def merge_and_check(df1: pd.DataFrame, df2: pd.DataFrame, on, how='outer', check=True, check_condition='right_only'):
     col_indicator = '_merge'
 
     if df2 is None:
@@ -80,11 +87,13 @@ def merge_and_check(df1: pd.DataFrame, df2: pd.DataFrame, on, how='outer', check
     
     df_merged = df1.merge(df2, on=on, how=how, indicator=True)
 
-    if (df_merged[col_indicator] == check_condition).any():
+    if check and (df_merged[col_indicator] == check_condition).any():
+        df_check = df_merged.loc[df_merged[col_indicator] == check_condition]
+        # df_check.to_csv('df_check.csv', index=False)
         warnings.warn(
             'Tabular dataframes have rows that do not match the manifest'
             '. Something is probably wrong with the manifest'
-            f'.\n{df_merged.loc[df_merged[col_indicator] == check_condition]}',
+            f'.\n{df_check}',
             stacklevel=2,
         )
 
