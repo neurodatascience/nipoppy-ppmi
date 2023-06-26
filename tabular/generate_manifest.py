@@ -12,7 +12,13 @@ import pandas as pd
 
 from tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
 from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, get_all_descriptions
-from tabular.ppmi_utils import get_tabular_info, COL_GROUP_TABULAR, COL_SUBJECT_TABULAR, COL_VISIT_TABULAR
+from tabular.ppmi_utils import (
+    get_tabular_info, 
+    load_and_process_df_imaging,
+    COL_GROUP_TABULAR, 
+    COL_SUBJECT_TABULAR, 
+    COL_VISIT_TABULAR,
+)
 from workflow.utils import (
     COL_BIDS_ID_MANIFEST,
     COL_DATATYPE_MANIFEST,
@@ -40,38 +46,13 @@ DPATH_OTHER_RELATIVE = DPATH_TABULAR_RELATIVE / 'other'
 DPATH_RELEASES_RELATIVE = Path('releases')
 DPATH_OUTPUT_RELATIVE = DPATH_TABULAR_RELATIVE
 
-# TODO move to ppmi_utils.py
-COL_SUBJECT_IMAGING = 'Subject ID'
-COL_VISIT_IMAGING = 'Visit'
-COL_GROUP_IMAGING = 'Research Group'
-VISIT_IMAGING_MAP = {
-    'Baseline': 'BL',
-    'Month 6': 'R01',
-    'Month 12': 'V04',
-    'Month 24': 'V06',
-    'Month 36': 'V08',
-    'Month 48': 'V10',
-    'Screening': 'SC',
-    'Premature Withdrawal': 'PW',
-    'Symptomatic Therapy': 'ST',
-    'Unscheduled Visit 01': 'U01',
-    'Unscheduled Visit 02': 'U02',
-}
-GROUP_IMAGING_MAP = {
-    'PD': 'Parkinson\'s Disease',
-    'Prodromal': 'Prodromal',
-    'Control': 'Healthy Control',
-    'Phantom': 'Phantom',               # not in participant status file
-    'SWEDD': 'SWEDD',
-    'GenReg Unaff': 'GenReg Unaff',     # not in participant status file
-}
-DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
-
 # global config keys
 GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
 GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
 GLOBAL_CONFIG_VISITS = 'VISITS'
 GLOBAL_CONFIG_TABULAR = 'TABULAR'
+
+DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
 
 # flags
 FLAG_REGENERATE = '--regenerate'
@@ -341,41 +322,6 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
 
     if make_release:
         make_new_release(dpath_dataset, dpaths_include_in_release)
-
-def load_and_process_df_imaging(fpath_imaging):
-
-    # load
-    df_imaging = pd.read_csv(fpath_imaging, dtype=str)
-
-    # rename columns
-    df_imaging = df_imaging.rename(columns={
-        COL_SUBJECT_IMAGING: COL_SUBJECT_MANIFEST,
-        COL_VISIT_IMAGING: COL_VISIT_MANIFEST,
-        COL_DESCRIPTION_IMAGING: COL_DATATYPE_MANIFEST,
-    })
-
-    # convert visits from imaging to tabular labels
-    try:
-        df_imaging[COL_VISIT_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].apply(
-            lambda visit: VISIT_IMAGING_MAP[visit]
-        )
-    except KeyError as ex:
-        raise RuntimeError(
-            f'Found visit without mapping in VISIT_IMAGING_MAP: {ex.args[0]}')
-
-    # visits and sessions are the same
-    df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST]
-
-    # map group to tabular data naming scheme
-    try:
-        df_imaging[COL_GROUP_TABULAR] = df_imaging[COL_GROUP_IMAGING].apply(
-            lambda group: GROUP_IMAGING_MAP[group]
-        )
-    except KeyError as ex:
-        raise RuntimeError(
-            f'Found group without mapping in GROUP_IMAGING_MAP: {ex.args[0]}')
-    
-    return df_imaging
 
 def get_datatype_list(descriptions: pd.Series, description_datatype_map, seen=None):
 

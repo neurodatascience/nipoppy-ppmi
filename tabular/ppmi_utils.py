@@ -4,6 +4,8 @@ from functools import reduce
 import pandas as pd
 
 from workflow.utils import (
+    COL_DATATYPE_MANIFEST,
+    COL_SESSION_MANIFEST,
     COL_SUBJECT_MANIFEST,
     COL_VISIT_MANIFEST,
 )
@@ -11,6 +13,39 @@ from workflow.utils import (
 COL_SUBJECT_TABULAR = 'PATNO'
 COL_VISIT_TABULAR = 'EVENT_ID'
 COL_GROUP_TABULAR = 'COHORT_DEFINITION'
+
+COL_SUBJECT_IMAGING = 'Subject ID'
+COL_VISIT_IMAGING = 'Visit'
+COL_GROUP_IMAGING = 'Research Group'
+COL_MODALITY_IMAGING = 'Modality'           # column name in PPMI schema
+COL_DESCRIPTION_IMAGING = 'Description'
+COL_PROTOCOL_IMAGING = 'Imaging Protocol'
+
+MODALITY_DWI = 'DTI'                # PPMI "Modality" column
+MODALITY_FUNC = 'fMRI'
+MODALITY_ANAT = 'MRI'
+
+VISIT_IMAGING_MAP = {
+    'Baseline': 'BL',
+    'Month 6': 'R01',
+    'Month 12': 'V04',
+    'Month 24': 'V06',
+    'Month 36': 'V08',
+    'Month 48': 'V10',
+    'Screening': 'SC',
+    'Premature Withdrawal': 'PW',
+    'Symptomatic Therapy': 'ST',
+    'Unscheduled Visit 01': 'U01',
+    'Unscheduled Visit 02': 'U02',
+}
+GROUP_IMAGING_MAP = {
+    'PD': 'Parkinson\'s Disease',
+    'Prodromal': 'Prodromal',
+    'Control': 'Healthy Control',
+    'Phantom': 'Phantom',               # not in participant status file
+    'SWEDD': 'SWEDD',
+    'GenReg Unaff': 'GenReg Unaff',     # not in participant status file
+}
 
 def load_tabular_df(fpath, visits=None):
     df = pd.read_csv(fpath, dtype=str)
@@ -99,3 +134,38 @@ def merge_and_check(df1: pd.DataFrame, df2: pd.DataFrame, on, how='outer', check
 
     df_merged = df_merged.drop(columns=[col_indicator])
     return df_merged
+
+def load_and_process_df_imaging(fpath_imaging):
+
+    # load
+    df_imaging = pd.read_csv(fpath_imaging, dtype=str)
+
+    # rename columns
+    df_imaging = df_imaging.rename(columns={
+        COL_SUBJECT_IMAGING: COL_SUBJECT_MANIFEST,
+        COL_VISIT_IMAGING: COL_VISIT_MANIFEST,
+        COL_DESCRIPTION_IMAGING: COL_DATATYPE_MANIFEST,
+    })
+
+    # convert visits from imaging to tabular labels
+    try:
+        df_imaging[COL_VISIT_MANIFEST] = df_imaging[COL_VISIT_MANIFEST].apply(
+            lambda visit: VISIT_IMAGING_MAP[visit]
+        )
+    except KeyError as ex:
+        raise RuntimeError(
+            f'Found visit without mapping in VISIT_IMAGING_MAP: {ex.args[0]}')
+
+    # visits and sessions are the same
+    df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_VISIT_MANIFEST]
+
+    # map group to tabular data naming scheme
+    try:
+        df_imaging[COL_GROUP_TABULAR] = df_imaging[COL_GROUP_IMAGING].apply(
+            lambda group: GROUP_IMAGING_MAP[group]
+        )
+    except KeyError as ex:
+        raise RuntimeError(
+            f'Found group without mapping in GROUP_IMAGING_MAP: {ex.args[0]}')
+    
+    return df_imaging
