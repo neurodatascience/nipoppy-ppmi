@@ -11,21 +11,18 @@ import pandas as pd
 import tabular.filter_image_descriptions
 import workflow.logger as my_logger
 from tabular.filter_image_descriptions import (
-    FNAME_DESCRIPTIONS, 
-    DATATYPE_ANAT, 
-    DATATYPE_DWI, 
-    DATATYPE_FUNC,
+    FNAME_DESCRIPTIONS,
     get_all_descriptions,
 )
-from tabular.generate_manifest import (
+from tabular.filters import DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
+from tabular.ppmi_utils import (
     COL_DESCRIPTION_IMAGING,
-    COL_GROUP_TABULAR,
     COL_SUBJECT_IMAGING,
     COL_VISIT_IMAGING,
-    GROUPS_KEEP,
-    DEFAULT_IMAGING_FILENAME,
+    load_and_process_df_imaging,
+)
+from tabular.generate_manifest import (
     GLOBAL_CONFIG_DATASET_ROOT,
-    load_and_process_df_imaging
 )
 from workflow.utils import (
     COL_DATATYPE_MANIFEST,
@@ -57,7 +54,7 @@ FPATH_MANIFEST_RELATIVE = DPATH_TABULAR_RELATIVE / FNAME_MANIFEST
 FPATH_STATUS_RELATIVE = DPATH_RAW_DICOM_RELATIVE / FNAME_STATUS
 FPATH_LOGS_RELATIVE = Path('scratch', 'logs', 'fetch_dicom_downloads.log')
 
-def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk_size=None, logger=None):
+def run(fpath_global_config, session_id, n_jobs, datatypes, chunk_size=None, logger=None):
 
     session_id = session_id_to_bids_session(session_id)
 
@@ -76,7 +73,6 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
         f'\nfpath_global_config: {fpath_global_config}'
         f'\nsession_id: {session_id}'
         f'\nn_jobs: {n_jobs}'
-        f'\nfname_imaging: {fname_imaging}'
         f'\ndatatypes: {datatypes}'
         f'\nchunk_size: {chunk_size}'
         f'\ndpath_dataset: {dpath_dataset}'
@@ -87,7 +83,7 @@ def run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk
     dpath_raw_dicom_session = dpath_dataset / DPATH_RAW_DICOM_RELATIVE / session_id
     
     # load imaging data
-    fpath_imaging = dpath_dataset / DPATH_STUDY_DATA_RELATIVE / fname_imaging
+    fpath_imaging = dpath_dataset / 'tabular' / 'other' / global_config['TABULAR']['OTHER']['IMAGING_INFO']['FILENAME']
     df_imaging = load_and_process_df_imaging(fpath_imaging)
     df_imaging[COL_SESSION_MANIFEST] = df_imaging[COL_SESSION_MANIFEST].apply(session_id_to_bids_session)
 
@@ -230,12 +226,6 @@ if __name__ == '__main__':
     parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS, help=f'number of parallel processes (default: {DEFAULT_N_JOBS})')
     parser.add_argument('--datatypes', nargs='+', help=f'BIDS datatypes to download (default: {DEFAULT_DATATYPES})', default=DEFAULT_DATATYPES)
     parser.add_argument('--chunk_size', type=int, default=DEFAULT_CHUNK_SIZE, help=f'(default: {DEFAULT_CHUNK_SIZE})')
-    parser.add_argument(
-        '--imaging_filename', type=str, default=DEFAULT_IMAGING_FILENAME,
-        help=('name of file containing imaging data availability info, with columns'
-              f' "{COL_SUBJECT_IMAGING}", "{COL_VISIT_IMAGING}", and "{COL_DESCRIPTION_IMAGING}"'
-              f'. Expected to be in <DATASET_ROOT>/{DPATH_STUDY_DATA_RELATIVE}'
-              f' (default: {DEFAULT_IMAGING_FILENAME})'))
 
     args = parser.parse_args()
     fpath_global_config = args.global_config
@@ -243,6 +233,5 @@ if __name__ == '__main__':
     n_jobs = args.n_jobs
     datatypes = args.datatypes
     chunk_size = args.chunk_size
-    fname_imaging = args.imaging_filename
 
-    run(fpath_global_config, session_id, n_jobs, fname_imaging, datatypes, chunk_size=chunk_size)
+    run(fpath_global_config, session_id, n_jobs, datatypes, chunk_size=chunk_size)
