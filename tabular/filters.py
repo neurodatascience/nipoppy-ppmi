@@ -48,8 +48,8 @@ FILTERS = {
     }
 }
 # ----- ANAT (T1/T2/FLAIR) -----
-COMMON_SUBSTRINGS_ANAT_T1 = ['t1', 'mprage']
-COMMON_SUBSTRINGS_ANAT_T2 = ['t2', 'nm'] # including neuromelanin in T2
+COMMON_SUBSTRINGS_ANAT_T1 = ['t1', 'mprage', 'nm'] # neuromelanins are all T1
+COMMON_SUBSTRINGS_ANAT_T2 = ['t2']
 COMMON_SUBSTRINGS_ANAT_T2_STAR = ['t2_star', 't2\*']
 COMMON_SUBSTRINGS_ANAT_FLAIR = ['flair']
 EXCLUDE_IN_ANAT = [
@@ -69,12 +69,14 @@ EXCLUDE_IN_ANAT = [
     'SAG',          # 55 slices in one dimension
     'COR',          # 55 slices in one dimension
     'LOCALIZER',
+    'COR T2 loc',
     '3 plane',
     '3 PLANE LOC',
     'HighResHippo',
     'MIDLINE SAG LOC',
     'AX PD  5/1',
     'sag',
+    'MPR - SmartBrain', # only 1 slice
     # other
     'B0rf Map',
     'Cal Head 24',

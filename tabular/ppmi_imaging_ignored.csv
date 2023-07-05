@@ -36,6 +36,7 @@ Anon
 Ax T1 FLAIR
 B0rf Map
 COR
+COR T2 loc
 Cal Head 24
 Coronal
 DTI_FA
@@ -50,6 +51,7 @@ IsoADC
 LOCALIZER
 LOWER 2D GRE MT
 MIDLINE SAG LOC
+MPR - SmartBrain
 MPRAGE Phantom GRAPPA2
 SAG
 SAG SPGR
