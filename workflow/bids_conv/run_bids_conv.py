@@ -212,7 +212,7 @@ if __name__ == '__main__':
     global_config_file = args.global_config
     session_id = args.session_id
     stage = args.stage
-    overlay = args.overlay
+    overlay = Path(args.overlay).resolve()
     n_jobs = args.n_jobs
     dicom_id = args.dicom_id
     fpaths_to_copy = args.copy
