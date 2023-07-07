@@ -49,6 +49,15 @@ DIR_DESCRIPTIONS_MAP = {
     ]
 }
 
+# dwi acquisitions (for AP/PA scans)
+DESCRIPTION_ACQ_MAP = {
+    'DTI_B0_PA': 'B0',
+    'DTI_revB0_AP': 'B0',
+    'DTI_B700_64dir_PA': 'B700',
+    'DTI_B1000_64dir_PA': 'B1000',
+    'DTI_B2000_64dir_PA': 'B2000',
+}
+
 TAG_NEUROMELANIN = 'NM'
 TAG_SAG = 'sag'
 TAG_COR = 'cor'
@@ -112,8 +121,9 @@ def infotodict(seqinfo):
                 info[create_key_anat(suffix, plane=plane, dims=dims)].append(s.series_id)
 
         elif datatype == DATATYPE_DWI:
-            dir = get_dwi_direction_from_description(s.series_description)
-            info[create_key_dwi('dwi', dir=dir)].append(s.series_id)
+            acq = get_dwi_acq_from_description(s.series_description)
+            dir = get_dwi_dir_from_description(s.series_description)
+            info[create_key_dwi('dwi', dir=dir, acq=acq)].append(s.series_id)
 
         else:
             raise NotImplementedError(f'Not implemented for datatype {datatype} yet')
@@ -134,11 +144,19 @@ def create_key_anat(suffix, plane=None, dims=None, acq=None):
 
     return create_key(DATATYPE_ANAT, stem)
 
-def create_key_dwi(suffix, dir=None):
-    if dir is None:
-        stem = f'sub-{{subject}}_{{session}}_run-{PATTERN_ITEM}_{suffix}'
+def create_key_dwi(suffix, dir=None, acq=None):
+
+    if dir is not None:
+        dir_tag = f'_dir-{dir}'
     else:
-        stem = f'sub-{{subject}}_{{session}}_dir-{dir}_run-{PATTERN_ITEM}_{suffix}'
+        dir_tag = ''
+
+    if acq is not None:
+        acq_tag = f'_acq-{acq}'
+    else:
+        acq_tag = ''
+
+    stem = f'sub-{{subject}}_{{session}}{acq_tag}{dir_tag}_run-{PATTERN_ITEM}_{suffix}'
     return create_key(DATATYPE_DWI, stem)
 
 def create_key(datatype, stem, outtype=('nii.gz',), annotation_classes=None):
@@ -153,7 +171,10 @@ def get_image_id_from_dcm(fname_dcm):
         raise RuntimeError(f'Got more than one image ID from {fname_dcm}')
     return match.group(1)
 
-def get_dwi_direction_from_description(description: str):
+def get_dwi_acq_from_description(description: str):
+    return DESCRIPTION_ACQ_MAP.get(description)
+
+def get_dwi_dir_from_description(description: str):
 
     # check hardcoded description strings first
     for dir, descriptions in DIR_DESCRIPTIONS_MAP.items():
