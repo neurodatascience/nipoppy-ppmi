@@ -183,6 +183,7 @@ def run(global_configs, session_id, stage=2, overlay=None, n_jobs=2, dicom_id=No
             if len(new_participants_with_bids) > 0:
                 heudiconv_df.loc[heudiconv_df[COL_DICOM_ID].isin(new_participants_with_bids), COL_CONV_STATUS] = True
                 df_status.loc[heudiconv_df.index] = heudiconv_df
+                df_status = df_status.drop_duplicates(ignore_index=True)
                 save_backup(df_status, fpath_status, DNAME_BACKUPS_STATUS)
 
     else:
