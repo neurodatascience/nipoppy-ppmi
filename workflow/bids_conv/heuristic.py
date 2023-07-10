@@ -75,7 +75,7 @@ def infotodict(seqinfo):
     allowed template fields - follow python string module:
     item: index within category
     subject: participant id
-    session: session id (included 'ses-' prefix)
+    session: session id (including 'ses-' prefix)
     """
     
     global HEURISTIC_HELPER
