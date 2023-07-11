@@ -15,15 +15,8 @@ from tabular.filter_image_descriptions import (
     get_all_descriptions,
 )
 from tabular.filters import DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
-from tabular.ppmi_utils import (
-    COL_DESCRIPTION_IMAGING,
-    COL_SUBJECT_IMAGING,
-    COL_VISIT_IMAGING,
-    load_and_process_df_imaging,
-)
-from tabular.generate_manifest import (
-    GLOBAL_CONFIG_DATASET_ROOT,
-)
+from tabular.ppmi_utils import load_and_process_df_imaging
+from tabular.generate_manifest import GLOBAL_CONFIG_DATASET_ROOT
 from workflow.utils import (
     COL_DATATYPE_MANIFEST,
     COL_DOWNLOAD_STATUS,
@@ -46,7 +39,6 @@ DEFAULT_CHUNK_SIZE = 1000
 COL_IMAGE_ID = 'Image ID'
 
 DPATH_TABULAR_RELATIVE = Path('tabular')
-DPATH_STUDY_DATA_RELATIVE = DPATH_TABULAR_RELATIVE / 'study_data'
 DPATH_RAW_DICOM_RELATIVE = Path('scratch', 'raw_dicom')
 DPATH_DESCRIPTIONS = Path(tabular.filter_image_descriptions.__file__).parent
 FPATH_DESCRIPTIONS = DPATH_DESCRIPTIONS / FNAME_DESCRIPTIONS
@@ -216,7 +208,7 @@ if __name__ == '__main__':
     # argparse
     HELPTEXT = f"""
     Find Image IDs for PPMI scans that have not been downloaded yet. Requires an imaging data availability
-    info file that can be downloaded from the LONI IDA (should be in <DATASET_ROOT>/{DPATH_STUDY_DATA_RELATIVE}),
+    info file that can be downloaded from the LONI IDA (will check the global config file for the path),
     the manifest for PPMI (DATASET_ROOT/{FPATH_MANIFEST_RELATIVE}), as well as the DICOM-to-BIDS conversion status file
     (<DATASET_ROOT>/{FPATH_STATUS_RELATIVE}).
     """
