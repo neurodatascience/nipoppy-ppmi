@@ -8,11 +8,16 @@ then
     echo "<DPATH_REMOTE>:   destination folder on remote host machine"
 
     echo -e "\nExample usage:"
-    echo "./download_from_loni.sh 20230310-1.csv bic /data/pd/ppmi/downloads/20230310/ses-1"
+    echo "./download_from_loni.sh session_BL.csv narval <DATASET_ROOT>/downloads/ses-BL"
+    echo "(where ~/ppmi is the mr_proc dataset directory)"
 
     echo -e "\nNotes:"
-    echo "- This script needs to be run on the same computer that initiated the download on LONI"
-    echo "- Sample unzipping command: unzip -q 20230310-1.zip -d /data/pd/ppmi/scratch/raw_dicom/ses-1/ &"
+    echo "- This script exists because LONI only allows downloads that are made from"
+    echo "  the same computer that initiated the download on LONI. Since we cannot"
+    echo "  easily initialize the download from a remote server (requires GUI/Internet),"
+    echo "  the files need to be downloaded locally and then transfer to the remote server."
+    echo "  This script saves local disk space by piping the download directly to the remote server."
+    echo "- Sample unzipping command: unzip -q session_BL.zip -d <DATASET_ROOT>/scratch/raw_dicom/ses-BL/ &"
     exit 1
 fi
 
