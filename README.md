@@ -1,6 +1,6 @@
 # `mr_proc`: Parkinson's Progression Markers Initiative dataset
 
-This repository contains code to process tabular and imaging from the Parkinson's Progression Markers Initiative (PPMI) dataset. It is a fork of the main [`mr_proc`](https://github.com/neurodatascience/mr_proc) repository. `mr_proc` is a lightweight workflow management and harmonization tools for MRI and clinical data. This fork adds scripts and configuration files that are specific to PPMI.
+This repository contains code to process tabular and imaging data from the Parkinson's Progression Markers Initiative (PPMI) dataset. It is a fork of the main [`mr_proc`](https://github.com/neurodatascience/mr_proc) repository. `mr_proc` is a lightweight workflow management and harmonization tools for MRI and clinical data. This fork adds scripts, configuration files, and downstream analyses that are specific to PPMI.
 
 ## BIDS data file naming
 
@@ -18,7 +18,7 @@ Here is a description of the available BIDS data and the tags that can appear in
     - Neuromelanin images: `acq-NM`
   - For some images, the acquisition plane (`sag`/`ax`/`cor`) or type (`2D`/`3D`) cannot be easily obtained. In those cases, the filename will not contain an `acq` tag.
 - `dwi`
-  - All files have the `dwi` suffix.
+  - All imaging files have the `dwi` suffix.
   - Most images have a `dir` tag corresponding to the phase-encoding direction. This is one of: `LR`, `RL`, `AP`, or `PA`
   - Images where the phase-encoding direction cannot be easily inferred from the series description string do not have a `dir` tag.
   - Some participants have multi-shell sequences for their diffusion data. These files will have an additional `acq-B<value>` tag, where `value` is the b-value for that sequence.
