@@ -15,6 +15,7 @@ SUFFIX_T2_STAR = 'T2starw'
 SUFFIX_FLAIR = 'FLAIR'
 
 # datatype/suffix to description mapping (from mr_proc-ppmi script)
+# this file needs to be copied to the right directory before creating the container
 FPATH_DESCRIPTIONS = Path('/scratch/proc/ppmi_imaging_descriptions.json')
 
 # LONI IDA Search result file
@@ -31,9 +32,11 @@ KEY_DIMS = 'Acquisition Type'
 # dwi directions
 VALID_DIRS = ['AP', 'PA', 'LR', 'RL']
 DIR_RE_MAP = {
+    # will catch: ' R L', '_RL', 'R-L', 'R > L', etc.
     dir: f'[ \-_]{dir[0]}[ \-_>]*{dir[1]}(?:[ \-_]|\Z)'
     for dir in VALID_DIRS
 }
+# for descriptions not handled by the above regex
 DIR_DESCRIPTIONS_MAP = {
     'LR': [
         '2D DTI EPI FAT SHIFT LEFT',
@@ -58,6 +61,7 @@ DESCRIPTION_ACQ_MAP = {
     'DTI_B2000_64dir_PA': 'B2000',
 }
 
+# acq tags for anatomical scans
 TAG_NEUROMELANIN = 'NM'
 TAG_SAG = 'sag'
 TAG_COR = 'cor'
@@ -66,6 +70,8 @@ TAG_2D = '2D'
 TAG_3D = '3D'
 MAP_PLANE = {'SAGITTAL': TAG_SAG, 'CORONAL': TAG_COR, 'AXIAL': TAG_AX}
 MAP_DIMS = {'2D': TAG_2D, '3D': TAG_3D}
+
+# format for runs
 PATTERN_ITEM = '{item:02d}'
 
 HEURISTIC_HELPER = None
@@ -79,7 +85,6 @@ def infotodict(seqinfo):
     """
     
     global HEURISTIC_HELPER
-
     if HEURISTIC_HELPER is None:
         HEURISTIC_HELPER = HeuristicHelper()
 
@@ -126,7 +131,7 @@ def infotodict(seqinfo):
             info[create_key_dwi('dwi', dir=dir, acq=acq)].append(s.series_id)
 
         else:
-            raise NotImplementedError(f'Not implemented for datatype {datatype} yet')
+            raise NotImplementedError(f'Not implemented for datatype {datatype}')
 
     return info
 
@@ -172,7 +177,7 @@ def get_image_id_from_dcm(fname_dcm):
     return match.group(1)
 
 def get_dwi_acq_from_description(description: str):
-    return DESCRIPTION_ACQ_MAP.get(description)
+    return DESCRIPTION_ACQ_MAP.get(description) # returns None if not found
 
 def get_dwi_dir_from_description(description: str):
 
@@ -235,5 +240,4 @@ class HeuristicHelper:
                     if description in self.get_descriptions([datatype, suffix]):
                         return datatype, suffix
             else:
-                if description in self.get_descriptions([datatype]):
-                    return datatype, None
+                raise NotImplementedError(f'Not implemented for datatype {datatype}')
