@@ -27,6 +27,11 @@ FILTERS = {
         ],
         'exclude_out': [
             'PPMI 2.0',
+            'DTI (30Axis)',
+            'eDW_SSh SENSE',
+            'dDW_SSh SENSE',
+            'DW_SSh separate',
+            'dDW_SSh ADC',
         ],
         'reject_substrings': ['phantom'],
     },

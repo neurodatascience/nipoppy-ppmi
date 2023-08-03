@@ -39,10 +39,12 @@ COR
 COR T2 loc
 Cal Head 24
 Coronal
+DTI (30Axis)
 DTI_FA
 DTI_PHANTOM
 DTI_phantom
 DUAL_TSE
+DW_SSh separate
 Double_TSE
 Field_mapping
 GRE B0
@@ -61,6 +63,9 @@ TRA
 TRA/DUAL
 Transverse
 ax t1 reformat
+dDW_SSh ADC
+dDW_SSh SENSE
+eDW_SSh SENSE
 localizer
 sag
 t2_tirm_tra_dark-fluid NO BLADE
