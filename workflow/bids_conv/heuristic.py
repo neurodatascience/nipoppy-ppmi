@@ -92,10 +92,12 @@ def infotodict(seqinfo):
     for _, s in enumerate(seqinfo):
         
         image_id = get_image_id_from_dcm(s.example_dcm_file)
+
+        # suffix could be None
         try:
             datatype, suffix = HEURISTIC_HELPER.get_datatype_suffix_from_description(s.series_description)
-        except TypeError:
-            raise RuntimeError(f'Did not find description {s.series_description} in mapping for datatypes {HEURISTIC_HELPER.datatypes} for image {image_id}')
+        except Exception as exception:
+            raise RuntimeError(f'{str(exception)} (image ID: {image_id})') 
 
         imaging_protocol_info = {}
         for protocol_info_entry in HEURISTIC_HELPER.df_imaging.loc[image_id, COL_PROTOCOL].split(SEP_PROTOCOL_INFO_ENTRY):
@@ -240,4 +242,7 @@ class HeuristicHelper:
                     if description in self.get_descriptions([datatype, suffix]):
                         return datatype, suffix
             else:
-                raise NotImplementedError(f'Not implemented for datatype {datatype}')
+                if description in self.get_descriptions([datatype]):
+                    return datatype, None
+                else:
+                    raise RuntimeError(f'Could not find datatype for description {description}')
