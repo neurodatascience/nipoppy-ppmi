@@ -70,6 +70,8 @@ TAG_2D = '2D'
 TAG_3D = '3D'
 MAP_PLANE = {'SAGITTAL': TAG_SAG, 'CORONAL': TAG_COR, 'AXIAL': TAG_AX}
 MAP_DIMS = {'2D': TAG_2D, '3D': TAG_3D}
+TAGS_PLANE = [TAG_SAG, TAG_COR, TAG_AX]
+TAGS_DIMS = [TAG_2D, TAG_3D]
 
 # format for runs
 PATTERN_ITEM = '{item:02d}'
@@ -93,47 +95,67 @@ def infotodict(seqinfo):
         
         image_id = get_image_id_from_dcm(s.example_dcm_file)
 
-        # suffix could be None
+        # hardcoded, hard-to-handle cases
+        if image_id == '1609526':
+            info[create_key_anat(SUFFIX_T1, plane=TAG_SAG, dims=TAG_3D)].append(s.series_id)
+            continue
+        elif image_id == '1609534':
+            info[create_key_anat(SUFFIX_FLAIR, plane=TAG_SAG, dims=TAG_3D)].append(s.series_id)
+            continue
+
         try:
+            # suffix could be None
             datatype, suffix = HEURISTIC_HELPER.get_datatype_suffix_from_description(s.series_description)
-        except Exception as exception:
-            raise RuntimeError(f'{str(exception)} (image ID: {image_id})') 
 
-        imaging_protocol_info = {}
-        for protocol_info_entry in HEURISTIC_HELPER.df_imaging.loc[image_id, COL_PROTOCOL].split(SEP_PROTOCOL_INFO_ENTRY):
-            key, value = protocol_info_entry.split(SEP_PROTOCOL_INFO)
-            imaging_protocol_info[key] = value
+            imaging_protocol_info_str = HEURISTIC_HELPER.df_imaging.loc[image_id, COL_PROTOCOL]
+            imaging_protocol_info_parsed = {}
+            if not pd.isna(imaging_protocol_info_str):
+                for protocol_info_entry in imaging_protocol_info_str.split(SEP_PROTOCOL_INFO_ENTRY):
+                    key, value = protocol_info_entry.split(SEP_PROTOCOL_INFO)
+                    imaging_protocol_info_parsed[key] = value
 
-        plane = None # to fill in
-        dims = None
-        if datatype == DATATYPE_ANAT:
+            plane = None # to fill in
+            dims = None
+            if datatype == DATATYPE_ANAT:
 
-            if re.search(RE_NEUROMELANIN, s.series_description):
-                info[create_key_anat(suffix, acq=TAG_NEUROMELANIN)].append(s.series_id)
+                if re.search(RE_NEUROMELANIN, s.series_description):
+                    info[create_key_anat(suffix, acq=TAG_NEUROMELANIN)].append(s.series_id)
+
+                else:
+
+                    # image dimensions: 2D or 3D
+                    try:
+                        dims = MAP_DIMS[imaging_protocol_info_parsed[KEY_DIMS]]
+                    except KeyError:
+                        for tag_dim in TAGS_DIMS:
+                            if tag_dim.lower() in s.series_description.lower():
+                                if dims is not None:
+                                    raise RuntimeError(f'Found multiple dims tags in description: {s.series_description}')
+                                dims = tag_dim
+
+                    # acquisition plane: sagittal, coronal, or axial
+                    try:
+                        plane = MAP_PLANE[imaging_protocol_info_parsed[KEY_PLANE]]
+                    except KeyError:
+                        for tag_plane in TAGS_PLANE:
+                            if tag_plane.lower() in s.series_description.lower():
+                                if plane is not None:
+                                    raise RuntimeError(f'Found multiple plane tags in description: {s.series_description}')
+                                plane = tag_plane
+
+                    info[create_key_anat(suffix, plane=plane, dims=dims)].append(s.series_id)
+
+            elif datatype == DATATYPE_DWI:
+                acq = get_dwi_acq_from_description(s.series_description)
+                dir = get_dwi_dir_from_description(s.series_description)
+                info[create_key_dwi('dwi', dir=dir, acq=acq)].append(s.series_id)
 
             else:
-
-                # image dimensions: 2D or 3D
-                try:
-                    dims = MAP_DIMS[imaging_protocol_info[KEY_DIMS]]
-                except KeyError:
-                    pass
-
-                # acquisition plane: sagittal, coronal, or axial
-                try:
-                    plane = MAP_PLANE[imaging_protocol_info[KEY_PLANE]]
-                except KeyError:
-                    pass
-
-                info[create_key_anat(suffix, plane=plane, dims=dims)].append(s.series_id)
-
-        elif datatype == DATATYPE_DWI:
-            acq = get_dwi_acq_from_description(s.series_description)
-            dir = get_dwi_dir_from_description(s.series_description)
-            info[create_key_dwi('dwi', dir=dir, acq=acq)].append(s.series_id)
-
-        else:
-            raise NotImplementedError(f'Not implemented for datatype {datatype}')
+                raise NotImplementedError(f'Not implemented for datatype {datatype}')
+            
+        except Exception as exception:
+            print(f'ERROR in heuristic: {str(exception)} (image ID: {image_id})')
+            continue
 
     return info
 
