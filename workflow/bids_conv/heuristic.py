@@ -13,6 +13,7 @@ SUFFIX_T1 = 'T1w'
 SUFFIX_T2 = 'T2w'
 SUFFIX_T2_STAR = 'T2starw'
 SUFFIX_FLAIR = 'FLAIR'
+SUFFIX_DWI = 'dwi'
 
 # datatype/suffix to description mapping (from mr_proc-ppmi script)
 # this file needs to be copied to the right directory before creating the container
@@ -96,11 +97,17 @@ def infotodict(seqinfo):
         image_id = get_image_id_from_dcm(s.example_dcm_file)
 
         # hardcoded, hard-to-handle cases
-        if image_id == '1609526':
+        # T1 sagittal 3D
+        if image_id in ['1609526', '1680311']:
             info[create_key_anat(SUFFIX_T1, plane=TAG_SAG, dims=TAG_3D)].append(s.series_id)
             continue
+        # T2 sagittal 3D
         elif image_id == '1609534':
             info[create_key_anat(SUFFIX_FLAIR, plane=TAG_SAG, dims=TAG_3D)].append(s.series_id)
+            continue
+        # generic diffusion
+        elif image_id in ['1680316', '1680317']:
+            info[create_key_dwi()].append(s.series_id)
             continue
 
         try:
@@ -148,7 +155,7 @@ def infotodict(seqinfo):
             elif datatype == DATATYPE_DWI:
                 acq = get_dwi_acq_from_description(s.series_description)
                 dir = get_dwi_dir_from_description(s.series_description)
-                info[create_key_dwi('dwi', dir=dir, acq=acq)].append(s.series_id)
+                info[create_key_dwi(dir=dir, acq=acq)].append(s.series_id)
 
             else:
                 raise NotImplementedError(f'Not implemented for datatype {datatype}')
@@ -173,7 +180,7 @@ def create_key_anat(suffix, plane=None, dims=None, acq=None):
 
     return create_key(DATATYPE_ANAT, stem)
 
-def create_key_dwi(suffix, dir=None, acq=None):
+def create_key_dwi(suffix=SUFFIX_DWI, dir=None, acq=None):
 
     if dir is not None:
         dir_tag = f'_dir-{dir}'
