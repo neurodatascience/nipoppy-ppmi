@@ -77,19 +77,6 @@ DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
 COL_SUBJECT_TABULAR = 'PATNO'
 COL_VISIT_TABULAR = 'EVENT_ID'
 COL_GROUP_TABULAR = 'COHORT_DEFINITION'
-VISIT_SESSION_MAP = {
-    'BL': '1',
-    'V04': '5',
-    'V06': '7',
-    'V08': '9',
-    'V10': '11',
-    'PW': '30', 
-    'ST': '21',
-    'U02': '91',
-    'U01': '90',
-    'SC': '0',
-    'R01': '3', # Month 6
-}
 
 # global config keys
 GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
