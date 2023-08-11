@@ -21,9 +21,16 @@ FILTERS = {
             'T1', 
             'T2', 
             'sT1W_3D_TFE', 
-            'TRA/DUAL',     # SWI/FLAIR
-            'MR',           # phantom subject
-            'DTI_FA',       # phantom (solar eclipse)
+            'TRA/DUAL',                 # SWI/FLAIR
+            'MR',                       # phantom subject
+            'DTI_FA',                   # phantom (solar eclipse)
+            'DTI_gated_FA',             # not raw DWI
+            'DTI Sequence_FA',          # not raw DWI
+            'DTI_gated AC-PC LINE_FA',  # not raw DWI
+            'DTI_LR_ColFA',             # not raw DWI
+            'DTI_RL_ColFA',             # not raw DWI
+            'DTI_LR_FA',                # not raw DWI
+            'DTI_RL_FA',                # not raw DWI
         ],
         'exclude_out': [
             'PPMI 2.0',
@@ -32,8 +39,16 @@ FILTERS = {
             'dDW_SSh SENSE',
             'DW_SSh separate',
             'dDW_SSh ADC',
+            'DTI_RL_TRACEW',
+            'DTI_LR_TRACEW',
+            'DTI_RL_ADC',
+            'DTI_RL_FA',
+            'DTI_LR_ADC',
+            'DTI_LR_FA',
+            'DTI_RL_ColFA',
+            'DTI_LR_ColFA',
         ],
-        'reject_substrings': ['phantom'],
+        'reject_substrings': ['phantom', 'adc', 'trace'],
     },
     DATATYPE_FUNC: {
         'common_substrings': ['fmri', 'bold', 'rsmri'],
