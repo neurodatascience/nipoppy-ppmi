@@ -15,7 +15,7 @@ from workflow.utils import (
 )
 from tabular.ppmi_utils import get_tabular_info_and_merge
 
-# TODO import from workflow.utils (mr_proc repo)
+# TODO import from workflow.utils (nipoppy repo)
 FPATH_ASSESSMENTS_RELATIVE = Path('tabular/assessments/assessments.csv')
 FPATH_BAGEL_RELATIVE = Path('tabular/bagel.csv')
 FPATH_DEMOGRAPHICS_RELATIVE = Path('tabular/demographics/demographics.csv')
@@ -35,7 +35,7 @@ def run(fpath_global_config):
     visits = global_config['VISITS']
 
     # load the manifest
-    fpath_manifest = dataset_root / 'tabular' / 'mr_proc_manifest.csv'
+    fpath_manifest = dataset_root / 'tabular' / 'manifest.csv'
     df_manifest = load_manifest(fpath_manifest)
 
     # only keep indexing cols
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=HELPTEXT)
     parser.add_argument(
         '--global_config', type=str, required=True,
-        help='path to global config file for your mr_proc dataset (required)')
+        help='path to global config file for your nipoppy dataset (required)')
     args = parser.parse_args()
 
     # parse

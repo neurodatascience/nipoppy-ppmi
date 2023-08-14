@@ -213,7 +213,7 @@ if __name__ == '__main__':
     (<DATASET_ROOT>/{FPATH_STATUS_RELATIVE}).
     """
     parser = argparse.ArgumentParser(description=HELPTEXT)
-    parser.add_argument('--global_config', type=str, help='path to global config file for your mr_proc dataset', required=True)
+    parser.add_argument('--global_config', type=str, help='path to global config file for your nipoppy dataset', required=True)
     parser.add_argument('--session_id', type=str, default=None, help='MRI session (i.e. visit) to process)', required=True)
     parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS, help=f'number of parallel processes (default: {DEFAULT_N_JOBS})')
     parser.add_argument('--datatypes', nargs='+', help=f'BIDS datatypes to download (default: {DEFAULT_DATATYPES})', default=DEFAULT_DATATYPES)
