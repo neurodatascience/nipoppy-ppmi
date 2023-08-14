@@ -86,7 +86,7 @@ def process_tabular_and_save(info_dict, dpath_parent, df_manifest, visits, fpath
 if __name__ == '__main__':
     # argparse
     HELPTEXT = f"""
-    TODO
+    Process/aggregate tabular data and create a single bagel file for tracking tabular data availability.
     """
 
     parser = argparse.ArgumentParser(description=HELPTEXT)
