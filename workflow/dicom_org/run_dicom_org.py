@@ -6,6 +6,8 @@ import workflow.logger as my_logger
 from joblib import Parallel, delayed
 from pathlib import Path
 
+import pandas as pd
+
 import workflow.catalog as catalog
 from workflow.dicom_org.utils import search_dicoms, copy_dicoms
 from workflow.utils import (
@@ -26,6 +28,9 @@ def reorg(participant, participant_dicom_dir, raw_dicom_dir, dicom_dir, invalid_
     """
     logger.info(f"\nparticipant_id: {participant}")
 
+    if pd.isna(participant_dicom_dir):
+        raise RuntimeError(f"Got null participant_dicom_dir for participant {participant}: {participant_dicom_dir}")
+
     participant_raw_dicom_dir = f"{raw_dicom_dir}/{participant_dicom_dir}/"
 
     raw_dcm_list, invalid_dicom_list = search_dicoms(participant_raw_dicom_dir, skip_dcm_check)
@@ -35,7 +40,10 @@ def reorg(participant, participant_dicom_dir, raw_dicom_dir, dicom_dir, invalid_
     dicom_id = participant_id_to_dicom_id(participant)
     participant_dicom_dir = f"{dicom_dir}/{dicom_id}/"
     
-    copy_dicoms(raw_dcm_list, participant_dicom_dir, use_symlinks)
+    if len(raw_dcm_list) > 0:
+        copy_dicoms(raw_dcm_list, participant_dicom_dir, use_symlinks)
+    else:
+        logger.error(f'No dicoms found for participant {participant} (dicom directory: {participant_raw_dicom_dir}). Not copying files.')
     
     # Log skipped invalid dicom list for the participant
     invalid_dicoms_file = f"{invalid_dicom_dir}/{participant}_invalid_dicoms.json"
@@ -113,7 +121,7 @@ if __name__ == '__main__':
     Script to reorganize raw (scanner dump) DICOMs into flattened dir structure needed for BIDS conversion using HeuDiConv
     """
     parser = argparse.ArgumentParser(description=HELPTEXT)
-    parser.add_argument('--global_config', type=str, help='path to global config file for your mr_proc dataset', required=True)
+    parser.add_argument('--global_config', type=str, help='path to global config file for your nipoppy dataset', required=True)
     parser.add_argument('--session_id', type=str, help='session (i.e. visit to process)', required=True)
     parser.add_argument('--no_symlinks', action='store_true', help='copy/duplicate files from raw_dicom to dicom (default: create symlinks)')
     parser.add_argument('--skip_dcm_check', action='store_true', help='skip raw dicoms checks to see if they are derived')

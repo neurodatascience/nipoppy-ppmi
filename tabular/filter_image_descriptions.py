@@ -25,11 +25,10 @@ from tabular.ppmi_utils import (
 )
 
 # ========== CONSTANTS ==========
-DEFAULT_IMAGING_FILENAME = 'idaSearch.csv'
 FNAME_DESCRIPTIONS = 'ppmi_imaging_descriptions.json' # output file name
 FNAME_IGNORED = 'ppmi_imaging_ignored.csv'            # output file name
 GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
-DPATH_INPUT_RELATIVE = Path('tabular', 'study_data')  # relative to DATASET_ROOT
+DPATH_OTHER_RELATIVE = Path('tabular', 'other')  # relative to DATASET_ROOT
 FLAG_OVERWRITE = '--overwrite'
 
 # mapping from BIDS datatype/suffix to PPMI "Modality" column
@@ -45,7 +44,7 @@ DATATYPE_MODALITY_MAP = {
 }
 
 
-def run(global_config_file, imaging_filename, overwrite=False, indent=4):
+def run(global_config_file, overwrite=False, indent=4):
 
     # parse global config
     with open(global_config_file) as file:
@@ -53,9 +52,9 @@ def run(global_config_file, imaging_filename, overwrite=False, indent=4):
     dpath_dataset = Path(global_config[GLOBAL_CONFIG_DATASET_ROOT])
 
     # generate filepaths
-    dpath_input = dpath_dataset / DPATH_INPUT_RELATIVE
+    dpath_other = dpath_dataset / DPATH_OTHER_RELATIVE
     dpath_out = Path(__file__).parent
-    fpath_imaging = dpath_input / imaging_filename
+    fpath_imaging = dpath_other / global_config['TABULAR']['OTHER']['IMAGING_INFO']['FILENAME']
     fpath_out_descriptions = dpath_out / FNAME_DESCRIPTIONS
     fpath_out_ignored = dpath_out / FNAME_IGNORED
 
@@ -321,17 +320,12 @@ if __name__ == '__main__':
     Script to generate generate lists of protocol names for various datatypes and sub-datatypes. 
     Also creates a CSV file with all images with a description not matching any datatype. 
     Requires an imaging data availability info file that can be downloaded from 
-    the LONI IDA. File should be in [DATASET_ROOT]/{DPATH_INPUT_RELATIVE}.
+    the LONI IDA. File should be in [DATASET_ROOT]/{DPATH_OTHER_RELATIVE}.
     """
     parser = argparse.ArgumentParser(description=HELPTEXT)
     parser.add_argument(
         '--global_config', type=str, required=True,
         help='path to global config file for your mr_proc dataset (required)')
-    parser.add_argument(
-        '--imaging_filename', type=str, default=DEFAULT_IMAGING_FILENAME,
-        help=('name of file containing imaging data availability info, with columns'
-              f' "{COL_MODALITY_IMAGING}", "{COL_DESCRIPTION_IMAGING}", and "{COL_PROTOCOL_IMAGING}"'
-              f' (default: {DEFAULT_IMAGING_FILENAME})'))
     parser.add_argument(
         FLAG_OVERWRITE, action='store_true',
         help=(f'overwrite any existing {FNAME_DESCRIPTIONS} file')
@@ -340,8 +334,7 @@ if __name__ == '__main__':
 
     # parse
     global_config_file = args.global_config
-    imaging_filename = args.imaging_filename
     overwrite = args.overwrite
 
-    run(global_config_file, imaging_filename, overwrite=overwrite)
+    run(global_config_file, overwrite=overwrite)
 

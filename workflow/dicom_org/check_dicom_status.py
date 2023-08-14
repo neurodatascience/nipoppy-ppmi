@@ -65,7 +65,7 @@ def run(global_config_file, regenerate=False, empty=False):
                 f'Did not find an existing {FNAME_STATUS} file'
                 f'. Use {FLAG_EMPTY} to create an empty one'
                 f' or {FLAG_REGENERATE} to create one based on current files'
-                ' in the datset (can be slow)'
+                ' in the dataset (can be slow)'
             )
     
     # initialize dicom dir (cannot be inferred directly from participant id)
@@ -83,7 +83,7 @@ def run(global_config_file, regenerate=False, empty=False):
     if regenerate:
 
         try:
-            from dicom_dir_func import participant_id_to_dicom_dir
+            from workflow.dicom_org.dicom_dir_func import participant_id_to_dicom_dir
             df_status[COL_PARTICIPANT_DICOM_DIR] = df_status[COL_SUBJECT_MANIFEST].apply(
                 lambda participant_id: participant_id_to_dicom_dir(participant_id, global_config)
             )
@@ -138,7 +138,7 @@ def run(global_config_file, regenerate=False, empty=False):
         df_status = pd.concat([df_status_old, df_status_new_rows], axis='index')
         print(f'\nAdded {len(df_status_new_rows)} rows to existing status file')
 
-    df_status = df_status[COLS_STATUS]
+    df_status = df_status[COLS_STATUS].drop_duplicates(ignore_index=True)
 
     # do not write file if there are no changes from previous one
     if df_status_old is not None and df_status.equals(df_status_old):
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=HELPTEXT)
     parser.add_argument(
         '--global_config', type=str, required=True,
-        help='path to global config file for your mr_proc dataset (required)')
+        help='path to global config file for your nipoppy dataset (required)')
     parser.add_argument(
         FLAG_REGENERATE, action='store_true',
         help=('regenerate entire status file'
