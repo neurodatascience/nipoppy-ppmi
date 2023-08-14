@@ -15,7 +15,7 @@ from workflow.tabular.filters import (
     EXCLUDE_IN_ANAT, EXCLUDE_IN_ANAT_T1,
     FILTERS,
 )
-from workflow.tabular.ppmi_utils import (
+from workflow.ppmi_utils import (
     COL_DESCRIPTION_IMAGING,
     COL_MODALITY_IMAGING,
     COL_PROTOCOL_IMAGING,

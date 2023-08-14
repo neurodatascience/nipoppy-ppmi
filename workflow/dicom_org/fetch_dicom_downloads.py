@@ -15,7 +15,7 @@ from workflow.tabular.filter_image_descriptions import (
     get_all_descriptions,
 )
 from workflow.tabular.filters import DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
-from workflow.tabular.ppmi_utils import load_and_process_df_imaging
+from workflow.ppmi_utils import load_and_process_df_imaging
 from workflow.tabular.generate_manifest import GLOBAL_CONFIG_DATASET_ROOT
 from workflow.utils import (
     COL_DATATYPE_MANIFEST,
@@ -40,7 +40,7 @@ COL_IMAGE_ID = 'Image ID'
 
 DPATH_TABULAR_RELATIVE = Path('tabular')
 DPATH_RAW_DICOM_RELATIVE = Path('scratch', 'raw_dicom')
-DPATH_DESCRIPTIONS = Path(tabular.filter_image_descriptions.__file__).parent
+DPATH_DESCRIPTIONS = Path(workflow.tabular.filter_image_descriptions.__file__).parent
 FPATH_DESCRIPTIONS = DPATH_DESCRIPTIONS / FNAME_DESCRIPTIONS
 FPATH_MANIFEST_RELATIVE = DPATH_TABULAR_RELATIVE / FNAME_MANIFEST
 FPATH_STATUS_RELATIVE = DPATH_RAW_DICOM_RELATIVE / FNAME_STATUS
