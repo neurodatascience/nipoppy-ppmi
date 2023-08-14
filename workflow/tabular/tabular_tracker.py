@@ -13,7 +13,7 @@ from workflow.utils import (
     save_backup,
     participant_id_to_bids_id,
 )
-from tabular.ppmi_utils import get_tabular_info_and_merge
+from workflow.tabular.ppmi_utils import get_tabular_info_and_merge
 
 # TODO import from workflow.utils (nipoppy repo)
 FPATH_ASSESSMENTS_RELATIVE = Path('tabular/assessments/assessments.csv')

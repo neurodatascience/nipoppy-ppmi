@@ -8,15 +8,15 @@ from pathlib import Path
 
 import pandas as pd
 
-import tabular.filter_image_descriptions
+import workflow.tabular.filter_image_descriptions
 import workflow.logger as my_logger
-from tabular.filter_image_descriptions import (
+from workflow.tabular.filter_image_descriptions import (
     FNAME_DESCRIPTIONS,
     get_all_descriptions,
 )
-from tabular.filters import DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
-from tabular.ppmi_utils import load_and_process_df_imaging
-from tabular.generate_manifest import GLOBAL_CONFIG_DATASET_ROOT
+from workflow.tabular.filters import DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
+from workflow.tabular.ppmi_utils import load_and_process_df_imaging
+from workflow.tabular.generate_manifest import GLOBAL_CONFIG_DATASET_ROOT
 from workflow.utils import (
     COL_DATATYPE_MANIFEST,
     COL_DOWNLOAD_STATUS,

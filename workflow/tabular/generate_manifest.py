@@ -10,9 +10,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
-from tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, get_all_descriptions
-from tabular.ppmi_utils import (
+from workflow.tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
+from workflow.tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, get_all_descriptions
+from workflow.tabular.ppmi_utils import (
     get_tabular_info, 
     load_and_process_df_imaging,
     COL_GROUP_TABULAR, 
