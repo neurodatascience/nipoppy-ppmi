@@ -10,8 +10,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from workflow.tabular.filter_image_descriptions import COL_DESCRIPTION as COL_DESCRIPTION_IMAGING
-from workflow.tabular.filter_image_descriptions import FNAME_DESCRIPTIONS, DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, get_all_descriptions
+from workflow.tabular.filter_image_descriptions import (
+    FNAME_DESCRIPTIONS,
+    DATATYPE_ANAT,
+    DATATYPE_DWI,
+    DATATYPE_FUNC,
+    get_all_descriptions,
+)
 from workflow.ppmi_utils import (
     get_tabular_info, 
     load_and_process_df_imaging,
