@@ -21,14 +21,34 @@ FILTERS = {
             'T1', 
             'T2', 
             'sT1W_3D_TFE', 
-            'TRA/DUAL',     # SWI/FLAIR
-            'MR',           # phantom subject
-            'DTI_FA',       # phantom (solar eclipse)
+            'TRA/DUAL',                 # SWI/FLAIR
+            'MR',                       # phantom subject
+            'DTI_FA',                   # phantom (solar eclipse)
+            'DTI_gated_FA',             # not raw DWI
+            'DTI Sequence_FA',          # not raw DWI
+            'DTI_gated AC-PC LINE_FA',  # not raw DWI
+            'DTI_LR_ColFA',             # not raw DWI
+            'DTI_RL_ColFA',             # not raw DWI
+            'DTI_LR_FA',                # not raw DWI
+            'DTI_RL_FA',                # not raw DWI
         ],
         'exclude_out': [
             'PPMI 2.0',
+            'DTI (30Axis)',
+            'eDW_SSh SENSE',
+            'dDW_SSh SENSE',
+            'DW_SSh separate',
+            'dDW_SSh ADC',
+            'DTI_RL_TRACEW',
+            'DTI_LR_TRACEW',
+            'DTI_RL_ADC',
+            'DTI_RL_FA',
+            'DTI_LR_ADC',
+            'DTI_LR_FA',
+            'DTI_RL_ColFA',
+            'DTI_LR_ColFA',
         ],
-        'reject_substrings': ['phantom'],
+        'reject_substrings': ['phantom', 'adc', 'trace'],
     },
     DATATYPE_FUNC: {
         'common_substrings': ['fmri', 'bold', 'rsmri'],
@@ -48,8 +68,8 @@ FILTERS = {
     }
 }
 # ----- ANAT (T1/T2/FLAIR) -----
-COMMON_SUBSTRINGS_ANAT_T1 = ['t1', 'mprage']
-COMMON_SUBSTRINGS_ANAT_T2 = ['t2', 'nm'] # including neuromelanin in T2
+COMMON_SUBSTRINGS_ANAT_T1 = ['t1', 'mprage', 'nm'] # neuromelanins are all T1
+COMMON_SUBSTRINGS_ANAT_T2 = ['t2']
 COMMON_SUBSTRINGS_ANAT_T2_STAR = ['t2_star', 't2\*']
 COMMON_SUBSTRINGS_ANAT_FLAIR = ['flair']
 EXCLUDE_IN_ANAT = [
@@ -69,12 +89,14 @@ EXCLUDE_IN_ANAT = [
     'SAG',          # 55 slices in one dimension
     'COR',          # 55 slices in one dimension
     'LOCALIZER',
+    'COR T2 loc',
     '3 plane',
     '3 PLANE LOC',
     'HighResHippo',
     'MIDLINE SAG LOC',
     'AX PD  5/1',
     'sag',
+    'MPR - SmartBrain', # only 1 slice
     # other
     'B0rf Map',
     'Cal Head 24',
