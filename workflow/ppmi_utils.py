@@ -15,7 +15,7 @@ COL_VISIT_TABULAR = 'EVENT_ID'
 COL_GROUP_TABULAR = 'COHORT_DEFINITION'
 
 COL_SUBJECT_IMAGING = 'Subject ID'
-COL_VISIT_IMAGING = 'Visit'
+COL_SESSION_IMAGING = 'Visit'
 COL_GROUP_IMAGING = 'Research Group'
 COL_MODALITY_IMAGING = 'Modality'           # column name in PPMI schema
 COL_DESCRIPTION_IMAGING = 'Description'
@@ -143,7 +143,7 @@ def load_and_process_df_imaging(fpath_imaging):
     # rename columns
     df_imaging = df_imaging.rename(columns={
         COL_SUBJECT_IMAGING: COL_SUBJECT_MANIFEST,
-        COL_VISIT_IMAGING: COL_VISIT_MANIFEST,
+        COL_SESSION_IMAGING: COL_VISIT_MANIFEST,
         COL_DESCRIPTION_IMAGING: COL_DATATYPE_MANIFEST,
     })
 
