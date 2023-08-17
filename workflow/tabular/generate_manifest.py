@@ -25,7 +25,6 @@ from workflow.ppmi_utils import (
     COL_VISIT_TABULAR,
 )
 from workflow.utils import (
-    COL_BIDS_ID_MANIFEST,
     COL_DATATYPE_MANIFEST,
     COL_SESSION_MANIFEST,
     COL_SUBJECT_MANIFEST,
@@ -34,7 +33,6 @@ from workflow.utils import (
     DNAME_BACKUPS_MANIFEST, 
     FNAME_MANIFEST,
     load_manifest,
-    participant_id_to_bids_id,
     save_backup, 
     session_id_to_bids_session,
 )
@@ -264,11 +262,6 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     with_imaging = ~df_manifest[COL_SESSION_MANIFEST].isna()
     df_manifest.loc[with_imaging, COL_SESSION_MANIFEST] = df_manifest.loc[with_imaging, COL_SESSION_MANIFEST].apply(
         session_id_to_bids_session,
-    )
-
-    # convert subject ID to BIDS format
-    df_manifest.loc[with_imaging, COL_BIDS_ID_MANIFEST] = df_manifest.loc[with_imaging, COL_SUBJECT_MANIFEST].apply(
-        participant_id_to_bids_id,
     )
 
     # populate other columns
