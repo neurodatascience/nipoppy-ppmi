@@ -15,7 +15,7 @@ SUFFIX_T2_STAR = 'T2starw'
 SUFFIX_FLAIR = 'FLAIR'
 SUFFIX_DWI = 'dwi'
 
-# datatype/suffix to description mapping (from mr_proc-ppmi script)
+# datatype/suffix to description mapping (from nipoppy-ppmi script)
 # this file needs to be copied to the right directory before creating the container
 FPATH_DESCRIPTIONS = Path('/scratch/proc/ppmi_imaging_descriptions.json')
 

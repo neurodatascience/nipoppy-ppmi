@@ -9,11 +9,19 @@ import pandas as pd
 # BIDS datatypes are folder names under the subject folder, typically related to imaging modalities (anat, dwi, func, etc.)
 # BIDS suffixes are the last suffix before the file extension in a filename, typically related to image contrast (T1w, etc.)
 # https://bids-specification.readthedocs.io/en/stable/05-derivatives/02-common-data-types.html#preprocessed-or-cleaned-data
-from tabular.filters import (
+from workflow.tabular.filters import (
     DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, 
     SUFFIX_T1, SUFFIX_T2, SUFFIX_T2_STAR, SUFFIX_FLAIR,
     EXCLUDE_IN_ANAT, EXCLUDE_IN_ANAT_T1,
     FILTERS,
+)
+from workflow.ppmi_utils import (
+    COL_DESCRIPTION_IMAGING,
+    COL_MODALITY_IMAGING,
+    COL_PROTOCOL_IMAGING,
+    MODALITY_ANAT,
+    MODALITY_DWI,
+    MODALITY_FUNC,
 )
 
 # ========== CONSTANTS ==========
@@ -22,14 +30,6 @@ FNAME_IGNORED = 'ppmi_imaging_ignored.csv'            # output file name
 GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
 DPATH_OTHER_RELATIVE = Path('tabular', 'other')  # relative to DATASET_ROOT
 FLAG_OVERWRITE = '--overwrite'
-
-# imaging table columns
-COL_MODALITY = 'Modality'           # column name in PPMI schema
-COL_DESCRIPTION = 'Description'
-COL_PROTOCOL = 'Imaging Protocol'
-MODALITY_DWI = 'DTI'                # PPMI "Modality" column
-MODALITY_FUNC = 'fMRI'
-MODALITY_ANAT = 'MRI'
 
 # mapping from BIDS datatype/suffix to PPMI "Modality" column
 # the PPMI "Modality" column is not 100% accurate so we still have to check description strings
@@ -145,8 +145,8 @@ def run(global_config_file, overwrite=False, indent=4):
 
     # save another file with all images that didn't make it in any datatype
     df_ignored: pd.DataFrame = df_imaging.loc[
-        ~df_imaging[COL_DESCRIPTION].isin(descriptions_all),
-        COL_DESCRIPTION,
+        ~df_imaging[COL_DESCRIPTION_IMAGING].isin(descriptions_all),
+        COL_DESCRIPTION_IMAGING,
     ].drop_duplicates().sort_values()
     df_ignored.to_csv(fpath_out_ignored, index=False)
     print(f'Ignored descriptions written to: {fpath_out_ignored}')
@@ -198,18 +198,18 @@ def filter_descriptions(
     protocol_filters_str = ''
     if protocol_include is not None:
         df = df.loc[
-            df[COL_PROTOCOL].str.lower().str.contains('|'.join(protocol_include).lower(), na=False)
+            df[COL_PROTOCOL_IMAGING].str.lower().str.contains('|'.join(protocol_include).lower(), na=False)
         ]
         protocol_filters_str = f'{protocol_filters_str}\n\t- WITH: {", ".join(protocol_include)}'
     if protocol_exclude is not None:
         df = df.loc[
-            ~df[COL_PROTOCOL].str.lower().str.contains('|'.join(protocol_exclude).lower(), na=False)
+            ~df[COL_PROTOCOL_IMAGING].str.lower().str.contains('|'.join(protocol_exclude).lower(), na=False)
         ]
         protocol_filters_str = f'{protocol_filters_str}\n\t- WITHOUT: {", ".join(protocol_exclude)}'
     
     # initial set of descriptions
-    df_modality = df.loc[df[COL_MODALITY] == modality]
-    descriptions = df_modality[COL_DESCRIPTION].value_counts()
+    df_modality = df.loc[df[COL_MODALITY_IMAGING] == modality]
+    descriptions = df_modality[COL_DESCRIPTION_IMAGING].value_counts()
     print(f'Found {len(descriptions)} unique description strings for modality {modality}{protocol_filters_str}')
 
     # remove bad descriptions
@@ -256,14 +256,14 @@ def filter_descriptions(
     exclude_out_str = ''
     if exclude_out is not None and len(exclude_out) > 0:
         df_other_modalities = df_other_modalities.loc[
-            ~df_other_modalities[COL_DESCRIPTION].isin(exclude_out)
+            ~df_other_modalities[COL_DESCRIPTION_IMAGING].isin(exclude_out)
         ]
         exclude_out_str = f' (after removing {exclude_out})'
 
     # check if any of the previously found descriptions are in another modality
     common_descriptions_other_modalities = df_other_modalities.loc[
-        (df_other_modalities[COL_DESCRIPTION].isin(descriptions.index)),
-        COL_DESCRIPTION,
+        (df_other_modalities[COL_DESCRIPTION_IMAGING].isin(descriptions.index)),
+        COL_DESCRIPTION_IMAGING,
     ].value_counts()
     if len(common_descriptions_other_modalities) > 0:
         print(
@@ -277,10 +277,10 @@ def filter_descriptions(
     # find descriptions in other modalities that have a common substring
     descriptions_new = df_other_modalities.loc[
         (
-            (df_other_modalities[COL_DESCRIPTION].str.lower().str.contains('|'.join(common_substrings).lower()))
-            & (~df_other_modalities[COL_DESCRIPTION].isin(descriptions.index))
+            (df_other_modalities[COL_DESCRIPTION_IMAGING].str.lower().str.contains('|'.join(common_substrings).lower()))
+            & (~df_other_modalities[COL_DESCRIPTION_IMAGING].isin(descriptions.index))
         ),
-        COL_DESCRIPTION,
+        COL_DESCRIPTION_IMAGING,
     ].value_counts()
     if len(descriptions_new) > 0:
         print(
@@ -325,7 +325,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=HELPTEXT)
     parser.add_argument(
         '--global_config', type=str, required=True,
-        help='path to global config file for your mr_proc dataset (required)')
+        help='path to global config file for your nipoppy dataset (required)')
     parser.add_argument(
         FLAG_OVERWRITE, action='store_true',
         help=(f'overwrite any existing {FNAME_DESCRIPTIONS} file')

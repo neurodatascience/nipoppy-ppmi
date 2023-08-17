@@ -1,11 +1,11 @@
-# `mr_proc`: Parkinson's Progression Markers Initiative dataset
+# Nipoppy: Parkinson's Progression Markers Initiative dataset
 
-This repository contains code to process tabular and imaging data from the Parkinson's Progression Markers Initiative (PPMI) dataset. It is a fork of the main [`mr_proc`](https://github.com/neurodatascience/mr_proc) repository. `mr_proc` is a lightweight workflow management and harmonization tools for MRI and clinical data. This fork adds scripts, configuration files, and downstream analyses that are specific to PPMI.
+This repository contains code to process tabular and imaging data from the Parkinson's Progression Markers Initiative (PPMI) dataset. It is a fork of the main [Nipoppy](https://github.com/neurodatascience/nipoppy) repository. Nipoppy is a lightweight workflow management and harmonization tools for MRI and clinical data. This fork adds scripts, configuration files, and downstream analyses that are specific to PPMI.
 
 ## BIDS data file naming
 
 <!-- TODO: update link/path once tabular is moved under workflow -->
-The [tabular/ppmi_imaging_descriptions.json](https://github.com/neurodatascience/mr_proc-ppmi/blob/main/tabular/ppmi_imaging_descriptions.json) file is used to determine the BIDS datatype and suffix (contrast) associated with an image's MRI series description. It will be updated as new data is processed.
+The [tabular/ppmi_imaging_descriptions.json](https://github.com/neurodatascience/nipoppy-ppmi/blob/main/tabular/ppmi_imaging_descriptions.json) file is used to determine the BIDS datatype and suffix (contrast) associated with an image's MRI series description. It will be updated as new data is processed.
 
 Here is a description of the available BIDS data and the tags that can appear in their filenames:
 
