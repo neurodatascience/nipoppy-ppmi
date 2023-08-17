@@ -8,15 +8,15 @@ from pathlib import Path
 
 import pandas as pd
 
-import tabular.filter_image_descriptions
+import workflow.tabular.filter_image_descriptions
 import workflow.logger as my_logger
-from tabular.filter_image_descriptions import (
+from workflow.tabular.filter_image_descriptions import (
     FNAME_DESCRIPTIONS,
     get_all_descriptions,
 )
-from tabular.filters import DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
-from tabular.ppmi_utils import load_and_process_df_imaging
-from tabular.generate_manifest import GLOBAL_CONFIG_DATASET_ROOT
+from workflow.tabular.filters import DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
+from workflow.ppmi_utils import load_and_process_df_imaging
+from workflow.tabular.generate_manifest import GLOBAL_CONFIG_DATASET_ROOT
 from workflow.utils import (
     COL_DATATYPE_MANIFEST,
     COL_DOWNLOAD_STATUS,
@@ -40,7 +40,7 @@ COL_IMAGE_ID = 'Image ID'
 
 DPATH_TABULAR_RELATIVE = Path('tabular')
 DPATH_RAW_DICOM_RELATIVE = Path('scratch', 'raw_dicom')
-DPATH_DESCRIPTIONS = Path(tabular.filter_image_descriptions.__file__).parent
+DPATH_DESCRIPTIONS = Path(workflow.tabular.filter_image_descriptions.__file__).parent
 FPATH_DESCRIPTIONS = DPATH_DESCRIPTIONS / FNAME_DESCRIPTIONS
 FPATH_MANIFEST_RELATIVE = DPATH_TABULAR_RELATIVE / FNAME_MANIFEST
 FPATH_STATUS_RELATIVE = DPATH_RAW_DICOM_RELATIVE / FNAME_STATUS
@@ -213,7 +213,7 @@ if __name__ == '__main__':
     (<DATASET_ROOT>/{FPATH_STATUS_RELATIVE}).
     """
     parser = argparse.ArgumentParser(description=HELPTEXT)
-    parser.add_argument('--global_config', type=str, help='path to global config file for your mr_proc dataset', required=True)
+    parser.add_argument('--global_config', type=str, help='path to global config file for your nipoppy dataset', required=True)
     parser.add_argument('--session_id', type=str, default=None, help='MRI session (i.e. visit) to process)', required=True)
     parser.add_argument('--n_jobs', type=int, default=DEFAULT_N_JOBS, help=f'number of parallel processes (default: {DEFAULT_N_JOBS})')
     parser.add_argument('--datatypes', nargs='+', help=f'BIDS datatypes to download (default: {DEFAULT_DATATYPES})', default=DEFAULT_DATATYPES)
