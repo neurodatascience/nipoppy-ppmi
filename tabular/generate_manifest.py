@@ -310,6 +310,9 @@ def run(global_config_file: str, imaging_filename: str, tabular_filenames: list[
     df_manifest = df_manifest[COLS_MANIFEST]
     df_manifest = df_manifest.sort_values([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]).reset_index(drop=True)
 
+    # drop duplicates (based on df cast as string)
+    df_manifest = df_manifest.loc[df_manifest.astype(str).drop_duplicates().index]
+
     # do not write file if there are no changes from previous manifest
     if df_manifest_old is not None:
         if df_manifest.equals(df_manifest_old):
