@@ -10,21 +10,21 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from workflow.tabular.filter_image_descriptions import (
+from nipoppy.workflow.tabular.filter_image_descriptions import (
     FNAME_DESCRIPTIONS,
     DATATYPE_ANAT,
     DATATYPE_DWI,
     DATATYPE_FUNC,
     get_all_descriptions,
 )
-from workflow.ppmi_utils import (
+from nipoppy.workflow.ppmi_utils import (
     get_tabular_info, 
     load_and_process_df_imaging,
     COL_GROUP_TABULAR, 
     COL_SUBJECT_TABULAR, 
     COL_VISIT_TABULAR,
 )
-from workflow.utils import (
+from nipoppy.workflow.utils import (
     COL_BIDS_ID_MANIFEST,
     COL_DATATYPE_MANIFEST,
     COL_SESSION_MANIFEST,
