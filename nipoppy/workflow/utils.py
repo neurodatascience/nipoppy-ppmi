@@ -107,4 +107,3 @@ def load_status(fpath_status):
             ]
         },
     )
-
