@@ -23,4 +23,4 @@ Here is a description of the available BIDS data and the tags that can appear in
   - Images where the phase-encoding direction cannot be easily inferred from the series description string do not have a `dir` tag.
   - Some participants have multi-shell sequences for their diffusion data. These files will have an additional `acq-B<value>` tag, where `value` is the b-value for that sequence.
 
-Currently, only structural (`anat`) and diffusion (`dwi`) MRI data are supported. Functionnal (`func`) data has not been converted to the BIDS format yet.
+Currently, only structural (`anat`) and diffusion (`dwi`) MRI data are supported. Functional (`func`) data has not been converted to the BIDS format yet.
