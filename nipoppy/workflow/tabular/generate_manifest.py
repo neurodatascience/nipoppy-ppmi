@@ -25,7 +25,6 @@ from nipoppy.workflow.ppmi_utils import (
     COL_VISIT_TABULAR,
 )
 from nipoppy.workflow.utils import (
-    COL_BIDS_ID_MANIFEST,
     COL_DATATYPE_MANIFEST,
     COL_SESSION_MANIFEST,
     COL_SUBJECT_MANIFEST,
@@ -34,7 +33,6 @@ from nipoppy.workflow.utils import (
     DNAME_BACKUPS_MANIFEST, 
     FNAME_MANIFEST,
     load_manifest,
-    participant_id_to_bids_id,
     save_backup, 
     session_id_to_bids_session,
 )
@@ -266,11 +264,6 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
         session_id_to_bids_session,
     )
 
-    # convert subject ID to BIDS format
-    df_manifest.loc[with_imaging, COL_BIDS_ID_MANIFEST] = df_manifest.loc[with_imaging, COL_SUBJECT_MANIFEST].apply(
-        participant_id_to_bids_id,
-    )
-
     # populate other columns
     for col in COLS_MANIFEST:
         if not (col in df_manifest.columns):
@@ -308,6 +301,9 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
         key=(lambda visits: visits.apply(global_config[GLOBAL_CONFIG_VISITS].index)),
     )
     df_manifest = df_manifest.sort_values(COL_SUBJECT_MANIFEST, kind='stable').reset_index(drop=True)
+
+    # drop duplicates (based on df cast as string)
+    df_manifest = df_manifest.loc[df_manifest.astype(str).drop_duplicates().index]
 
     # do not write file if there are no changes from previous manifest
     if df_manifest_old is not None:
