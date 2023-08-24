@@ -8,16 +8,16 @@ from pathlib import Path
 
 import pandas as pd
 
-import workflow.tabular.filter_image_descriptions
-import workflow.logger as my_logger
-from workflow.tabular.filter_image_descriptions import (
+import nipoppy.workflow.tabular.filter_image_descriptions
+import nipoppy.workflow.logger as my_logger
+from nipoppy.workflow.tabular.filter_image_descriptions import (
     FNAME_DESCRIPTIONS,
     get_all_descriptions,
 )
-from workflow.tabular.filters import DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
-from workflow.ppmi_utils import load_and_process_df_imaging
-from workflow.tabular.generate_manifest import GLOBAL_CONFIG_DATASET_ROOT
-from workflow.utils import (
+from nipoppy.workflow.tabular.filters import DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC
+from nipoppy.workflow.ppmi_utils import load_and_process_df_imaging
+from nipoppy.workflow.tabular.generate_manifest import GLOBAL_CONFIG_DATASET_ROOT
+from nipoppy.workflow.utils import (
     COL_DATATYPE_MANIFEST,
     COL_DOWNLOAD_STATUS,
     COL_SESSION_MANIFEST,
@@ -40,7 +40,7 @@ COL_IMAGE_ID = 'Image ID'
 
 DPATH_TABULAR_RELATIVE = Path('tabular')
 DPATH_RAW_DICOM_RELATIVE = Path('scratch', 'raw_dicom')
-DPATH_DESCRIPTIONS = Path(workflow.tabular.filter_image_descriptions.__file__).parent
+DPATH_DESCRIPTIONS = Path(nipoppy.workflow.tabular.filter_image_descriptions.__file__).parent
 FPATH_DESCRIPTIONS = DPATH_DESCRIPTIONS / FNAME_DESCRIPTIONS
 FPATH_MANIFEST_RELATIVE = DPATH_TABULAR_RELATIVE / FNAME_MANIFEST
 FPATH_STATUS_RELATIVE = DPATH_RAW_DICOM_RELATIVE / FNAME_STATUS

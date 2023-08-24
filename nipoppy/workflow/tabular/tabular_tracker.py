@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from workflow.utils import (
+from nipoppy.workflow.utils import (
     COL_BIDS_ID_MANIFEST,
     COL_SUBJECT_MANIFEST,
     COL_VISIT_MANIFEST,
@@ -13,9 +13,9 @@ from workflow.utils import (
     save_backup,
     participant_id_to_bids_id,
 )
-from workflow.ppmi_utils import get_tabular_info_and_merge
+from nipoppy.workflow.ppmi_utils import get_tabular_info_and_merge
 
-# TODO import from workflow.utils (nipoppy repo)
+# TODO import from nipoppy.workflow.utils (nipoppy repo)
 FPATH_ASSESSMENTS_RELATIVE = Path('tabular/assessments/assessments.csv')
 FPATH_BAGEL_RELATIVE = Path('tabular/bagel.csv')
 FPATH_DEMOGRAPHICS_RELATIVE = Path('tabular/demographics/demographics.csv')
