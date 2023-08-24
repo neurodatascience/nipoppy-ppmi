@@ -9,13 +9,13 @@ import pandas as pd
 # BIDS datatypes are folder names under the subject folder, typically related to imaging modalities (anat, dwi, func, etc.)
 # BIDS suffixes are the last suffix before the file extension in a filename, typically related to image contrast (T1w, etc.)
 # https://bids-specification.readthedocs.io/en/stable/05-derivatives/02-common-data-types.html#preprocessed-or-cleaned-data
-from workflow.tabular.filters import (
+from nipoppy.workflow.tabular.filters import (
     DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC, 
     SUFFIX_T1, SUFFIX_T2, SUFFIX_T2_STAR, SUFFIX_FLAIR,
     EXCLUDE_IN_ANAT, EXCLUDE_IN_ANAT_T1,
     FILTERS,
 )
-from workflow.ppmi_utils import (
+from nipoppy.workflow.ppmi_utils import (
     COL_DESCRIPTION_IMAGING,
     COL_MODALITY_IMAGING,
     COL_PROTOCOL_IMAGING,

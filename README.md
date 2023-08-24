@@ -5,7 +5,7 @@ This repository contains code to process tabular and imaging data from the Parki
 ## BIDS data file naming
 
 <!-- TODO: update link/path once tabular is moved under workflow -->
-The [tabular/ppmi_imaging_descriptions.json](https://github.com/neurodatascience/nipoppy-ppmi/blob/main/tabular/ppmi_imaging_descriptions.json) file is used to determine the BIDS datatype and suffix (contrast) associated with an image's MRI series description. It will be updated as new data is processed.
+The [tabular/ppmi_imaging_descriptions.json](https://github.com/neurodatascience/nipoppy-ppmi/blob/main/nipoppy/workflow/tabular/ppmi_imaging_descriptions.json) file is used to determine the BIDS datatype and suffix (contrast) associated with an image's MRI series description. It will be updated as new data is processed.
 
 Here is a description of the available BIDS data and the tags that can appear in their filenames:
 

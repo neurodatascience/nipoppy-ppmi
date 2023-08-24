@@ -3,7 +3,7 @@ from functools import reduce
 
 import pandas as pd
 
-from workflow.utils import (
+from nipoppy.workflow.utils import (
     COL_DATATYPE_MANIFEST,
     COL_SESSION_MANIFEST,
     COL_SUBJECT_MANIFEST,
