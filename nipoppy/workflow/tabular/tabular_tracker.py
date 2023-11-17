@@ -54,7 +54,7 @@ def updrs3_on_off_splitter(df: pd.DataFrame):
         target_col = COL_OFF
         if pd_state == 'ON':
             target_col = COL_ON
-        elif pd_state != 'OFF':
+        elif pd_treatment != '0' and pd_state != 'OFF':
             if page == 'NUPDR3ON':
                 target_col = COL_ON
             elif page != 'NUPDR3OF':
