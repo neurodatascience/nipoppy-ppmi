@@ -7,13 +7,15 @@ import pandas as pd
 
 from nipoppy.workflow.utils import (
     COL_BIDS_ID_MANIFEST,
+    COL_SESSION_MANIFEST,
     COL_SUBJECT_MANIFEST,
     COL_VISIT_MANIFEST,
     load_manifest,
     save_backup,
     participant_id_to_bids_id,
+    session_id_to_bids_session,
 )
-from nipoppy.workflow.ppmi_utils import get_tabular_info_and_merge
+from nipoppy.workflow.ppmi_utils import get_tabular_info_and_merge, COL_SUBJECT_TABULAR, COL_VISIT_TABULAR
 
 # TODO import from nipoppy.workflow.utils (nipoppy repo)
 FPATH_ASSESSMENTS_RELATIVE = Path('tabular/assessments/assessments.csv')
@@ -22,6 +24,101 @@ FPATH_DEMOGRAPHICS_RELATIVE = Path('tabular/demographics/demographics.csv')
 DNAME_BACKUPS_ASSESSMENTS = '.assessments'
 DNAME_BACKUPS_DEMOGRAPHICS = '.demographics'
 DNAME_BACKUPS_BAGEL = '.bagels'
+
+FPATH_DASH_BAGEL_RELATIVE = Path('tabular/dashboard_bagel.csv')
+DNAME_BACKUPS_DASH_BAGEL = '.dashboard_bagels'
+DASH_BAGEL_ID_COLS = [COL_BIDS_ID_MANIFEST, COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST]
+DASH_BAGEL_VAR_NAME = 'assessment_name'
+DASH_BAGEL_VAR_VALUE = 'assessment_score'
+
+COL_UPDRS3 = 'NP3TOT'
+COL_AGE = 'AGE_AT_VISIT'
+
+def loading_func(df):
+    if COL_UPDRS3 in df.columns:
+        print(f'Filtering {COL_UPDRS3}')
+        df = updrs3_on_off_splitter(df)
+    if COL_AGE in df.columns:
+        print(f'Filtering {COL_AGE}')
+        df = age_filter(df)
+    return df
+
+def updrs3_on_off_splitter(df: pd.DataFrame):
+
+    COL_OFF = f'{COL_UPDRS3}_OFF'
+    COL_ON = f'{COL_UPDRS3}_ON'
+    data_new_df = []
+    cols = [COL_SUBJECT_TABULAR, COL_VISIT_TABULAR, 'PDSTATE', 'PAG_NAME', 'PDTRTMNT', COL_UPDRS3]
+    for subject, session, pd_state, page, pd_treatment, updrs3 in df[cols].itertuples(index=False):
+        
+        target_col = COL_OFF
+        if pd_state == 'ON':
+            target_col = COL_ON
+        elif pd_state != 'OFF':
+            if page == 'NUPDR3ON':
+                target_col = COL_ON
+            elif page != 'NUPDR3OF':
+                if pd_treatment == '1':
+                    target_col = COL_ON
+
+        data_new_df.append({
+            COL_SUBJECT_TABULAR: subject,
+            COL_VISIT_TABULAR: session,
+            target_col: float(updrs3),
+        })
+
+    df_on_off = pd.DataFrame(data_new_df).groupby([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]).max().reset_index()
+    return df_on_off
+
+def age_filter(df: pd.DataFrame):
+    def visit_sort_key(visit):
+        if visit == 'SC':
+            return -10
+        elif visit == 'BL':
+            return -5
+        else:
+            return int(''.join([c for c in visit if c.isdigit()]))
+    
+    def visit_is_before_or_same(visit1, visit2):
+        return visit_sort_key(visit1) <= visit_sort_key(visit2)
+    
+    def subject_sort_key(series):
+        try:
+            return series.astype(int)
+        except Exception:
+            return series
+    
+    # print(df.shape)
+    # print(df[[COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]].drop_duplicates().shape)
+    df[COL_AGE] = df[COL_AGE].astype(float)
+
+    # find subjects with multiple age entries for the same visit
+    groups = df.groupby([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])[COL_AGE]
+    counts = groups.count()
+    records_with_multiple_ages = counts[counts > 1].index.unique()
+    df_no_duplicates = df.set_index([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]).drop(index=records_with_multiple_ages)
+    for record_to_fix in records_with_multiple_ages:
+        # print('======================')
+        subject, session = record_to_fix
+        duplicate_ages = groups.get_group(record_to_fix)
+        # print(record_to_fix, duplicate_ages.tolist())
+        other_sessions: pd.DataFrame = df.loc[(df[COL_SUBJECT_TABULAR] == subject) & (df[COL_VISIT_TABULAR] != session)]
+        # print(other_sessions.sort_values(by=COL_VISIT_TABULAR, key=(lambda s: s.apply(visit_sort_key))))
+        bad_ages = []
+        for duplicate_age in duplicate_ages:
+            for _session, _age in other_sessions[[COL_VISIT_TABULAR, COL_AGE]].itertuples(index=False):
+                if visit_is_before_or_same(session, _session) and duplicate_age >= _age:
+                    bad_ages.append(duplicate_age)
+        final_age = duplicate_ages[~duplicate_ages.isin(bad_ages)].mean()
+        # print(f'final_age: {final_age}')
+
+        df_no_duplicates.loc[record_to_fix, COL_AGE] = final_age
+
+    df_no_duplicates = df_no_duplicates.reset_index()
+    df_no_duplicates = df_no_duplicates.sort_values(by=[COL_SUBJECT_TABULAR, COL_VISIT_TABULAR], key=subject_sort_key)
+    # print(df_no_duplicates.shape)
+    # print(df_no_duplicates[[COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]].drop_duplicates().shape)
+    return df_no_duplicates
 
 def run(fpath_global_config):
 
@@ -32,6 +129,7 @@ def run(fpath_global_config):
     fpath_demographics = dataset_root / FPATH_DEMOGRAPHICS_RELATIVE
     fpath_assessments = dataset_root / FPATH_ASSESSMENTS_RELATIVE
     fpath_bagel = dataset_root / FPATH_BAGEL_RELATIVE
+    fpath_dash_bagel = dataset_root / FPATH_DASH_BAGEL_RELATIVE
     visits = global_config['VISITS']
 
     # load the manifest
@@ -50,6 +148,7 @@ def run(fpath_global_config):
         fpath_demographics, 
         DNAME_BACKUPS_DEMOGRAPHICS, 
         'demographics',
+        loading_func=loading_func,
     )
 
     # combine assessments info
@@ -61,6 +160,7 @@ def run(fpath_global_config):
         fpath_assessments,
         DNAME_BACKUPS_ASSESSMENTS,
         'assessments',
+        loading_func=loading_func,
     )
 
     # combine everything into a single bagel
@@ -75,8 +175,14 @@ def run(fpath_global_config):
     else:
         save_backup(df_bagel, fpath_bagel, DNAME_BACKUPS_BAGEL)
 
-def process_tabular_and_save(info_dict, dpath_parent, df_manifest, visits, fpath, dname_backups, tag):
-    df = get_tabular_info_and_merge(info_dict, dpath_parent, df_manifest=df_manifest, visits=visits)
+    # make and save dashboard bagel
+    df_dash_bagel = pd.melt(df_bagel, id_vars=DASH_BAGEL_ID_COLS, var_name=DASH_BAGEL_VAR_NAME,value_name=DASH_BAGEL_VAR_VALUE)
+    df_dash_bagel = df_dash_bagel.rename(columns={COL_VISIT_MANIFEST: COL_SESSION_MANIFEST})
+    df_dash_bagel[COL_SESSION_MANIFEST] = df_dash_bagel[COL_SESSION_MANIFEST].apply(session_id_to_bids_session)
+    save_backup(df_dash_bagel, fpath_dash_bagel, DNAME_BACKUPS_DASH_BAGEL)
+
+def process_tabular_and_save(info_dict, dpath_parent, df_manifest, visits, fpath, dname_backups, tag, loading_func=None):
+    df = get_tabular_info_and_merge(info_dict, dpath_parent, df_manifest=df_manifest, visits=visits, loading_func=loading_func)
     if Path(fpath).exists() and pd.read_csv(fpath, dtype=str).equals(df):
         print(f'No changes to {tag} file. Will not write new file.')
     else:
