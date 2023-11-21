@@ -25,6 +25,7 @@ from nipoppy.workflow.ppmi_utils import (
     COL_VISIT_TABULAR,
 )
 from nipoppy.workflow.utils import (
+    BIDS_SESSION_PREFIX,
     COL_DATATYPE_MANIFEST,
     COL_SESSION_MANIFEST,
     COL_SUBJECT_MANIFEST,
@@ -36,6 +37,7 @@ from nipoppy.workflow.utils import (
     save_backup, 
     session_id_to_bids_session,
 )
+from nipoppy.workflow.tabular.tabular_tracker import loading_func
 
 # subject groups to keep
 GROUPS_KEEP = ['Parkinson\'s Disease', 'Prodromal', 'Healthy Control', 'SWEDD']
@@ -67,6 +69,10 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
         global_config = json.load(file)
     dpath_dataset = Path(global_config[GLOBAL_CONFIG_DATASET_ROOT])
     visits = global_config[GLOBAL_CONFIG_VISITS]
+    expected_sessions = [
+        session.removeprefix(BIDS_SESSION_PREFIX)
+        for session in global_config[GLOBAL_CONFIG_SESSIONS]
+    ]
 
     # generate filepaths
     dpath_demographics = dpath_dataset / DPATH_DEMOGRAPHICS_RELATIVE
@@ -108,6 +114,7 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
         tabular_info_dict,
         dpath_dataset / 'tabular',
         visits=visits,
+        loading_func=loading_func,
     )
 
     with fpath_descriptions.open('r') as file_descriptions:
@@ -181,16 +188,16 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     )
 
     # check if all expected sessions are present
-    diff_sessions = set(global_config[GLOBAL_CONFIG_SESSIONS]) - set(df_imaging[COL_SESSION_MANIFEST])
+    diff_sessions = set(expected_sessions) - set(df_imaging[COL_SESSION_MANIFEST])
     if len(diff_sessions) != 0:
         warnings.warn(f'\nDid not encounter all sessions listed in global_config. Missing: {diff_sessions}')
 
     # only keep sessions that are listed in global_config
     n_img_before_session_drop = df_imaging.shape[0]
-    df_imaging = df_imaging.loc[df_imaging[COL_SESSION_MANIFEST].isin(global_config[GLOBAL_CONFIG_SESSIONS])]
+    df_imaging = df_imaging.loc[df_imaging[COL_SESSION_MANIFEST].isin(expected_sessions)]
     print(
         f'\nDropped {n_img_before_session_drop - df_imaging.shape[0]} imaging entries'
-        f' because the session was not in {global_config[GLOBAL_CONFIG_SESSIONS]}'
+        f' because the session was not in {expected_sessions}'
     )
     print('\nCohort composition:'
         f'\n{df_imaging[COL_GROUP_TABULAR].value_counts(dropna=False)}'
