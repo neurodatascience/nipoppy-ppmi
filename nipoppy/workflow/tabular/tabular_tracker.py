@@ -72,6 +72,7 @@ def updrs3_on_off_splitter(df: pd.DataFrame):
 
 def age_filter(df: pd.DataFrame):
     def visit_sort_key(visit):
+        # custom sorting key so that the order is: SC, then BL, then the rest in numerical order
         if visit == 'SC':
             return -10
         elif visit == 'BL':
@@ -88,8 +89,6 @@ def age_filter(df: pd.DataFrame):
         except Exception:
             return series
     
-    # print(df.shape)
-    # print(df[[COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]].drop_duplicates().shape)
     df[COL_AGE] = df[COL_AGE].astype(float)
 
     # find subjects with multiple age entries for the same visit
@@ -98,26 +97,23 @@ def age_filter(df: pd.DataFrame):
     records_with_multiple_ages = counts[counts > 1].index.unique()
     df_no_duplicates = df.set_index([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]).drop(index=records_with_multiple_ages)
     for record_to_fix in records_with_multiple_ages:
-        # print('======================')
+        # reduce duplicate ages into a single age by dropping "bad" ages and 
+        # taking the mean of the ages not maked as "bad"
+        # "bad" ages are those that are greater than (non-duplicated) ages at later visits
         subject, session = record_to_fix
         duplicate_ages = groups.get_group(record_to_fix)
-        # print(record_to_fix, duplicate_ages.tolist())
         other_sessions: pd.DataFrame = df.loc[(df[COL_SUBJECT_TABULAR] == subject) & (df[COL_VISIT_TABULAR] != session)]
-        # print(other_sessions.sort_values(by=COL_VISIT_TABULAR, key=(lambda s: s.apply(visit_sort_key))))
         bad_ages = []
         for duplicate_age in duplicate_ages:
             for _session, _age in other_sessions[[COL_VISIT_TABULAR, COL_AGE]].itertuples(index=False):
                 if visit_is_before_or_same(session, _session) and duplicate_age >= _age:
                     bad_ages.append(duplicate_age)
         final_age = duplicate_ages[~duplicate_ages.isin(bad_ages)].mean()
-        # print(f'final_age: {final_age}')
 
         df_no_duplicates.loc[record_to_fix, COL_AGE] = final_age
 
     df_no_duplicates = df_no_duplicates.reset_index()
     df_no_duplicates = df_no_duplicates.sort_values(by=[COL_SUBJECT_TABULAR, COL_VISIT_TABULAR], key=subject_sort_key)
-    # print(df_no_duplicates.shape)
-    # print(df_no_duplicates[[COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]].drop_duplicates().shape)
     return df_no_duplicates
 
 def run(fpath_global_config):
