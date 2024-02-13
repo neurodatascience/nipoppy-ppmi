@@ -98,7 +98,7 @@ def age_filter(df: pd.DataFrame):
     df_no_duplicates = df.set_index([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]).drop(index=records_with_multiple_ages)
     for record_to_fix in records_with_multiple_ages:
         # reduce duplicate ages into a single age by dropping "bad" ages and 
-        # taking the mean of the ages not maked as "bad"
+        # taking the mean of the ages not marked as "bad"
         # "bad" ages are those that are greater than (non-duplicated) ages at later visits
         subject, session = record_to_fix
         duplicate_ages = groups.get_group(record_to_fix)
