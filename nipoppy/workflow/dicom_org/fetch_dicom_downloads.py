@@ -22,10 +22,10 @@ from nipoppy.workflow.utils import (
     COL_DOWNLOAD_STATUS,
     COL_SESSION_MANIFEST,
     COL_SUBJECT_MANIFEST,
-    DNAME_BACKUPS_STATUS,
+    DNAME_BACKUPS_DOUGHNUT,
     FNAME_MANIFEST,
-    FNAME_STATUS,
-    load_status,
+    FNAME_DOUGHNUT,
+    load_doughnut,
     save_backup,
     session_id_to_bids_session,
 )
@@ -43,7 +43,7 @@ DPATH_RAW_DICOM_RELATIVE = Path('scratch', 'raw_dicom')
 DPATH_DESCRIPTIONS = Path(nipoppy.workflow.tabular.filter_image_descriptions.__file__).parent
 FPATH_DESCRIPTIONS = DPATH_DESCRIPTIONS / FNAME_DESCRIPTIONS
 FPATH_MANIFEST_RELATIVE = DPATH_TABULAR_RELATIVE / FNAME_MANIFEST
-FPATH_STATUS_RELATIVE = DPATH_RAW_DICOM_RELATIVE / FNAME_STATUS
+FPATH_STATUS_RELATIVE = DPATH_RAW_DICOM_RELATIVE / FNAME_DOUGHNUT
 FPATH_LOGS_RELATIVE = Path('scratch', 'logs', 'fetch_dicom_downloads.log')
 
 def run(fpath_global_config, session_id, n_jobs, datatypes, chunk_size=None, logger=None):
@@ -85,7 +85,7 @@ def run(fpath_global_config, session_id, n_jobs, datatypes, chunk_size=None, log
         error_message = f'Status file not found: {fpath_status}. Make sure to run check_dicom_status.py first!'
         logger.error(error_message)
         raise FileNotFoundError(error_message)
-    df_status = load_status(fpath_status)
+    df_status = load_doughnut(fpath_status)
     df_status_session = df_status.loc[df_status[COL_SESSION_MANIFEST] == session_id]
 
     # load image series descriptions (needed to identify images that are anat/dwi/func)
@@ -137,7 +137,7 @@ def run(fpath_global_config, session_id, n_jobs, datatypes, chunk_size=None, log
     if len(participants_to_update) > 0:
         df_status_session.loc[df_status_session[COL_SUBJECT_MANIFEST].isin(participants_to_update), COL_DOWNLOAD_STATUS] = True
         df_status.loc[df_status_session.index] = df_status_session
-        save_backup(df_status, fpath_status, DNAME_BACKUPS_STATUS)
+        save_backup(df_status, fpath_status, DNAME_BACKUPS_DOUGHNUT)
 
     logger.info(
         f'\n\n===== {Path(__file__).name.upper()} ====='
