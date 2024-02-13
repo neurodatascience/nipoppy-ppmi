@@ -47,8 +47,10 @@ GROUP_IMAGING_MAP = {
     'GenReg Unaff': 'GenReg Unaff',     # not in participant status file
 }
 
-def load_tabular_df(fpath, visits=None):
+def load_tabular_df(fpath, visits=None, loading_func=None):
     df = pd.read_csv(fpath, dtype=str)
+    if loading_func is not None:
+        df = loading_func(df)
     df = df.rename(columns={
         COL_SUBJECT_TABULAR: COL_SUBJECT_MANIFEST,
         COL_VISIT_TABULAR: COL_VISIT_MANIFEST,
@@ -58,10 +60,10 @@ def load_tabular_df(fpath, visits=None):
         df = df[df[COL_VISIT_MANIFEST].isin(visits)]
     return df
 
-def get_tabular_info_and_merge(info_dict, dpath_parent, df_manifest=None, visits=None):
+def get_tabular_info_and_merge(info_dict, dpath_parent, df_manifest=None, visits=None, loading_func=None):
     merge_how_with_index = 'outer' # 'outer' or 'left' (should be no difference if the index/manifest is correct)
     
-    df_static, df_nonstatic = get_tabular_info(info_dict, dpath_parent, visits=visits)
+    df_static, df_nonstatic = get_tabular_info(info_dict, dpath_parent, visits=visits, loading_func=loading_func)
 
     if df_nonstatic is None:
         raise RuntimeError('At least one dataframe must contain both subject and visit information')
@@ -77,12 +79,12 @@ def get_tabular_info_and_merge(info_dict, dpath_parent, df_manifest=None, visits
         df_merged = merge_and_check(df_static, df_nonstatic, on=[COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST], how='inner', check=check)
         return df_merged
     
-def get_tabular_info(info_dict, dpath_parent, visits=None):
+def get_tabular_info(info_dict, dpath_parent, visits=None, loading_func=None):
     dfs_static = [] # no visit info (doesn't change over time)
     dfs_nonstatic = []
     for colname_in_bagel, col_info in info_dict.items():
         is_static = col_info['IS_STATIC'].lower() in ['true', '1', 'yes']
-        df = load_tabular_df(dpath_parent / col_info['FILENAME'], visits=(None if is_static else visits))
+        df = load_tabular_df(dpath_parent / col_info['FILENAME'], visits=(None if is_static else visits), loading_func=loading_func)
         df = df.rename(columns={col_info['COLUMN']: colname_in_bagel})
         # df = df.dropna(axis='index', how='any', subset=colname_in_bagel) # drop rows with missing values
 
