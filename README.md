@@ -1,26 +1,30 @@
-# Nipoppy: Parkinson's Progression Markers Initiative dataset
+# Nipoppy
 
-This repository contains code to process tabular and imaging data from the Parkinson's Progression Markers Initiative (PPMI) dataset. It is a fork of the main [Nipoppy](https://github.com/neurodatascience/nipoppy) repository. Nipoppy is a lightweight workflow management and harmonization tools for MRI and clinical data. This fork adds scripts, configuration files, and downstream analyses that are specific to PPMI.
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8084759.svg)](https://doi.org/10.5281/zenodo.8084759)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/license/mit)
+[![codecov](https://codecov.io/gh/neurodatascience/nipoppy/graph/badge.svg?token=SN38ITRO4M)](https://codecov.io/gh/neurodatascience/nipoppy)
+[![https://github.com/psf/black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://black.readthedocs.io/en/stable/)
+[![Documentation Status](https://readthedocs.org/projects/nipoppy/badge/?version=latest)](https://nipoppy.readthedocs.io/en/latest/?badge=latest)
 
-## BIDS data file naming
+Nipoppy is a lightweight framework for standardized organization and processing of neuroimaging-clinical datasets. Its goal is to help users adopt the
+[FAIR](https://www.go-fair.org/fair-principles/) principles
+and improve the reproducibility of studies.
 
-<!-- TODO: update link/path once tabular is moved under workflow -->
-The [tabular/ppmi_imaging_descriptions.json](https://github.com/neurodatascience/nipoppy-ppmi/blob/main/nipoppy/workflow/tabular/ppmi_imaging_descriptions.json) file is used to determine the BIDS datatype and suffix (contrast) associated with an image's MRI series description. It will be updated as new data is processed.
+The framework includes three components:
 
-Here is a description of the available BIDS data and the tags that can appear in their filenames:
+1. A specification for dataset organization that extends the [Brain Imaging Data Structure (BIDS) standard](https://bids.neuroimaging.io/) by providing additional guidelines for tabular (e.g., phenotypic) data and imaging derivatives.
 
-- `anat`
-  - The available suffixes are: `T1w`, `T2w`, `T2starw`, and `FLAIR`
-  - Most images have an `acq` tag:
-    - Non-neuromelanin images: `acq-<plane><type>`, where
-        - `<plane>` is one of: `sag`, `ax`, or `cor` (for sagittal, axial, or coronal scans respectively)
-        - `<type>` is one of: `2D`, or `3D`
-    - Neuromelanin images: `acq-NM`
-  - For some images, the acquisition plane (`sag`/`ax`/`cor`) or type (`2D`/`3D`) cannot be easily obtained. In those cases, the filename will not contain an `acq` tag.
-- `dwi`
-  - All imaging files have the `dwi` suffix.
-  - Most images have a `dir` tag corresponding to the phase-encoding direction. This is one of: `LR`, `RL`, `AP`, or `PA`
-  - Images where the phase-encoding direction cannot be easily inferred from the series description string do not have a `dir` tag.
-  - Some participants have multi-shell sequences for their diffusion data. These files will have an additional `acq-B<value>` tag, where `value` is the b-value for that sequence.
+    ![Nipoppy specification](nipoppy_cli/docs/source/_static/img/nipoppy_specification.jpg)
 
-Currently, only structural (`anat`) and diffusion (`dwi`) MRI data are supported. Functional (`func`) data has not been converted to the BIDS format yet.
+2. A protocol for data organization, curation and processing, with steps that include the following:
+    - **Organization** of raw data, including conversion of raw DICOMs (or NIfTIs) to [BIDS](https://bids.neuroimaging.io/)
+    - **Processing** of imaging data with existing or custom pipelines
+    - **Tracking** of data availability and processing status
+    - **Extraction** of imaging-derived phenotypes (IDPs) for downstream statistical modelling and analysis
+
+    ![Nipoppy protocol](nipoppy_cli/docs/source/_static/img/nipoppy_protocol.jpg)
+
+3. A **command-line interface** and **Python package** that provide user-friendly tools for applying the framework. The tools build upon existing technologies such as the [Apptainer container platform](https://apptainer.org/) and the [Boutiques descriptor framework](https://boutiques.github.io/). Several existing containerized pipelines are supported out-of-the-box, and new pipelines can be added easily by the user.
+    - We have also developed a [**web dashboard**](https://digest.neurobagel.org) for interactive visualizations of imaging and phenotypic data availability.
+
+See the [documentation website](https://neurobagel.org/nipoppy/overview/) for more information!
