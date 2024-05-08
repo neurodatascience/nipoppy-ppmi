@@ -107,10 +107,6 @@ def age_filter(df: pd.DataFrame):
     df[COL_AGE] = df[COL_AGE].astype(float)
 
     # find subjects with multiple age entries for the same visit
-    # groups = df.groupby([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])[COL_AGE]
-    # counts = groups.count()
-    # records_with_multiple_ages = counts[counts > 1].index.unique()
-    # df_no_duplicates = df.set_index([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]).drop(index=records_with_multiple_ages)
     records_with_multiple_ages, groups, df_no_duplicates = _find_duplicates(df, [COL_SUBJECT_TABULAR, COL_VISIT_TABULAR], COL_AGE)
     for record_to_fix in records_with_multiple_ages:
         # reduce duplicate ages into a single age by dropping "bad" ages and 
