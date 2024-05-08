@@ -33,6 +33,8 @@ DASH_BAGEL_VAR_VALUE = 'assessment_score'
 
 COL_UPDRS3 = 'NP3TOT'
 COL_AGE = 'AGE_AT_VISIT'
+COL_EDUCATION = 'EDUCYRS'
+COL_UPSIT = 'UPSIT_PRCNTGE'
 
 def loading_func(df):
     if COL_UPDRS3 in df.columns:
@@ -41,6 +43,12 @@ def loading_func(df):
     if COL_AGE in df.columns:
         print(f'Filtering {COL_AGE}')
         df = age_filter(df)
+    if COL_EDUCATION in df.columns:
+        print(f'Filtering {COL_EDUCATION}')
+        df = education_filter(df)
+    if COL_UPSIT in df.columns:
+        print(f'Filtering {COL_UPSIT}')
+        df = upsit_filter(df)
     return df
 
 def updrs3_on_off_splitter(df: pd.DataFrame):
@@ -70,6 +78,19 @@ def updrs3_on_off_splitter(df: pd.DataFrame):
     df_on_off = pd.DataFrame(data_new_df).groupby([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]).max().reset_index()
     return df_on_off
 
+def _find_duplicates(df: pd.DataFrame, cols_index, col_value):
+    groups = df.groupby(cols_index)[col_value]
+    counts = groups.count()
+    records_with_multiple_ages = counts[counts > 1].index.unique()
+    df_no_duplicates = df.set_index(cols_index).drop(index=records_with_multiple_ages)
+    return records_with_multiple_ages, groups, df_no_duplicates
+
+def _subject_sort_key(series):
+    try:
+        return series.astype(int)
+    except Exception:
+        return series
+
 def age_filter(df: pd.DataFrame):
     def visit_sort_key(visit):
         # custom sorting key so that the order is: SC, then BL, then the rest in numerical order
@@ -83,19 +104,14 @@ def age_filter(df: pd.DataFrame):
     def visit_is_before_or_same(visit1, visit2):
         return visit_sort_key(visit1) <= visit_sort_key(visit2)
     
-    def subject_sort_key(series):
-        try:
-            return series.astype(int)
-        except Exception:
-            return series
-    
     df[COL_AGE] = df[COL_AGE].astype(float)
 
     # find subjects with multiple age entries for the same visit
-    groups = df.groupby([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])[COL_AGE]
-    counts = groups.count()
-    records_with_multiple_ages = counts[counts > 1].index.unique()
-    df_no_duplicates = df.set_index([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]).drop(index=records_with_multiple_ages)
+    # groups = df.groupby([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR])[COL_AGE]
+    # counts = groups.count()
+    # records_with_multiple_ages = counts[counts > 1].index.unique()
+    # df_no_duplicates = df.set_index([COL_SUBJECT_TABULAR, COL_VISIT_TABULAR]).drop(index=records_with_multiple_ages)
+    records_with_multiple_ages, groups, df_no_duplicates = _find_duplicates(df, [COL_SUBJECT_TABULAR, COL_VISIT_TABULAR], COL_AGE)
     for record_to_fix in records_with_multiple_ages:
         # reduce duplicate ages into a single age by dropping "bad" ages and 
         # taking the mean of the ages not marked as "bad"
@@ -113,8 +129,46 @@ def age_filter(df: pd.DataFrame):
         df_no_duplicates.loc[record_to_fix, COL_AGE] = final_age
 
     df_no_duplicates = df_no_duplicates.reset_index()
-    df_no_duplicates = df_no_duplicates.sort_values(by=[COL_SUBJECT_TABULAR, COL_VISIT_TABULAR], key=subject_sort_key)
+    df_no_duplicates = df_no_duplicates.sort_values(by=[COL_SUBJECT_TABULAR, COL_VISIT_TABULAR], key=_subject_sort_key)
     return df_no_duplicates
+
+def education_filter(df: pd.DataFrame):
+    # education is a "static metric", meaning that only one value is expected for 
+    # each participant. However, there are participants with more than one entry 
+    # in that case we take the mean of the entries
+    df[COL_EDUCATION] = df[COL_EDUCATION].astype(float)
+
+    # first we drop the duplicates where the education year is the same
+    df = df.drop_duplicates([COL_SUBJECT_TABULAR, COL_EDUCATION])
+
+    # we also drop rows with missing values
+    df = df.dropna(axis='index', subset=COL_EDUCATION)
+
+    subjects_with_multiple_edu, groups, df_no_duplicates = _find_duplicates(df, [COL_SUBJECT_TABULAR], COL_EDUCATION)
+    for subject_to_fix in subjects_with_multiple_edu:
+        duplicate_edus = groups.get_group(subject_to_fix)
+        df_no_duplicates.loc[subject_to_fix, COL_EDUCATION] = duplicate_edus.mean()
+    df_no_duplicates = df_no_duplicates.reset_index()
+    df_no_duplicates = df_no_duplicates.sort_values(by=COL_SUBJECT_TABULAR, key=_subject_sort_key)
+    
+    return df_no_duplicates
+
+def upsit_filter(df: pd.DataFrame):
+    # take the mean UPSIT score
+    df[COL_UPSIT] = df[COL_UPSIT].astype(float)
+
+    # we also drop rows with missing values
+    df = df.dropna(axis='index', subset=COL_UPSIT)
+
+    subjects_with_multiple_edu, groups, df_no_duplicates = _find_duplicates(df, [COL_SUBJECT_TABULAR, COL_VISIT_TABULAR], COL_UPSIT)
+    for subject_to_fix in subjects_with_multiple_edu:
+        duplicate_edus = groups.get_group(subject_to_fix)
+        df_no_duplicates.loc[subject_to_fix, COL_UPSIT] = duplicate_edus.mean()
+    df_no_duplicates = df_no_duplicates.reset_index()
+    df_no_duplicates = df_no_duplicates.sort_values(by=[COL_SUBJECT_TABULAR, COL_VISIT_TABULAR], key=_subject_sort_key)
+    
+    return df_no_duplicates
+
 
 def run(fpath_global_config):
 
@@ -164,6 +218,15 @@ def run(fpath_global_config):
     df_bagel = df_bagel.drop_duplicates().reset_index(drop=True)
     df_bagel.insert(1, COL_BIDS_ID_MANIFEST, df_bagel[COL_SUBJECT_MANIFEST].apply(participant_id_to_bids_id))
     print(f'\nGenerated bagel: {df_bagel.shape}')
+
+    # check that the bagel has no duplicate entries
+    idx_bagel = df_bagel.loc[:, [COL_BIDS_ID_MANIFEST, COL_VISIT_MANIFEST]].apply(lambda df: ' '.join(df.dropna().astype(str).values), axis=1)
+    idx_bagel_counts = idx_bagel.value_counts()
+    has_duplicates = idx_bagel_counts.loc[idx_bagel_counts > 1]
+    if len(has_duplicates) > 0:
+        df_bagel_duplicates = df_bagel.loc[idx_bagel.isin(has_duplicates.index)]
+        df_bagel_duplicates.to_csv('bagel_duplicates.csv', index=False)
+        raise RuntimeError(f'Bagel has duplicate entries (saved to bagel_duplicates.csv):\n{df_bagel_duplicates}')
 
     # save bagel
     if fpath_bagel.exists() and pd.read_csv(fpath_bagel, dtype=str).equals(df_bagel):
