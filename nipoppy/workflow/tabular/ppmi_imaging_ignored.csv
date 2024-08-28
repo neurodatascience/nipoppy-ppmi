@@ -8,11 +8,9 @@ Description
 2D GRE-MT 3
 2D GRE-MT 4
 2D GRE-MT 5
+2D GRE-MT Q9R1007332
 2D GRE-MT_ACPC
 2D GRE-MT_RPT2
-2D GRE-NM
-2D GRE-NMMT
-2D GRE-NM_MT
 2D GRE_MT
 2D T2  FLAIR
 2D T2 FLAIR
@@ -21,6 +19,7 @@ Description
 2D-GRE-MT
 2DGRE-MT
 2D_GRE-MT
+2D_GRE_MT
 3 PLANE LOC
 3 Plane Localizer
 3 plane
@@ -84,7 +83,9 @@ ax t1 reformat
 dDW_SSh ADC
 dDW_SSh SENSE
 eDW_SSh SENSE
+gre_MT_PAPER
 localizer
 sag
+t2_localizer
 t2_tirm_tra_dark-fluid NO BLADE
 t2_tirm_tra_dark-fluid_
