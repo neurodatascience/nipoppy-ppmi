@@ -81,7 +81,6 @@ COMMON_SUBSTRINGS_ANAT_FLAIR = ['flair']
 EXCLUDE_IN_ANAT = [
     # 2D
     'ax t1 reformat',
-    'AX GRE -MT',
     'AX DUAL_TSE',
     'DUAL_TSE',
     'TRA/DUAL',
@@ -89,7 +88,6 @@ EXCLUDE_IN_ANAT = [
     'SURVEY',
     'Double_TSE',
     'localizer',
-    'AX GRE -MT REPEAT',
     '3 Plane Localizer',
     'TRA',          # 55 slices in one dimension
     'SAG',          # 55 slices in one dimension
@@ -103,7 +101,6 @@ EXCLUDE_IN_ANAT = [
     'AX PD  5/1',
     'sag',
     'MPR - SmartBrain', # only 1 slice
-    'gre_MT_PAPER',
     # other
     'B0rf Map',
     'Cal Head 24',
@@ -126,9 +123,31 @@ FILTERS.update({
         'reject_substrings': REJECT_SUBSTRINGS_ANAT + COMMON_SUBSTRINGS_ANAT_T2 + COMMON_SUBSTRINGS_ANAT_T2_STAR + COMMON_SUBSTRINGS_ANAT_FLAIR,
         'reject_substrings_exceptions': [
             'T1 REPEAT2', # contains 'T2'
-            '2D GRE-NM', # neuromelanin, contains '2D'
-            '2D GRE-NMMT', # neuromelanin, contains '2D'
-            '2D GRE-NM_MT', # neuromelanin, contains '2D'
+            # neuromelanin, contains '2D'
+            '2D GRE-NM',
+            '2D GRE-NMMT',
+            '2D GRE-NM_MT',
+            '2D GRE - MT',
+            '2D GRE MT',
+            '2D GRE MT MTC-NO',
+            '2D GRE-MT',
+            '2D GRE-MT 1',
+            '2D GRE-MT 2',
+            '2D GRE-MT 3',
+            '2D GRE-MT 4',
+            '2D GRE-MT 5',
+            '2D GRE-MT Q9R1007332',
+            '2D GRE-MT_ACPC',
+            '2D GRE-MT_RPT2',
+            '2D GRE_MT',
+            '2D-GRE MT',
+            '2D-GRE-MT',
+            '2DGRE-MT',
+            '2D_GRE-MT',
+            '2D_GRE_MT',
+            'AX 2D GRE-MT',
+            'AXIAL 2D GRE-MT',
+            'LOWER 2D GRE MT',
         ],
     },
     SUFFIX_T2: {
