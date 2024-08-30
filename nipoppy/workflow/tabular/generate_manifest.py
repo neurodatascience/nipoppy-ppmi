@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import json
+import re
 import shutil
 import warnings
 from pathlib import Path
@@ -56,6 +57,10 @@ GLOBAL_CONFIG_DATASET_ROOT = 'DATASET_ROOT'
 GLOBAL_CONFIG_SESSIONS = 'SESSIONS'
 GLOBAL_CONFIG_VISITS = 'VISITS'
 GLOBAL_CONFIG_TABULAR = 'TABULAR'
+
+COL_NEUROMELANIN_MANIFEST = 'neuromelanin'
+RE_NEUROMELANIN = '[nN][mM]' # neuromelanin pattern
+COLS_MANIFEST = COLS_MANIFEST + [COL_NEUROMELANIN_MANIFEST]
 
 DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI, DATATYPE_FUNC]
 
@@ -218,9 +223,11 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
 
     # create imaging datatype availability lists
     seen_datatypes = set()
-    df_imaging = df_imaging.groupby([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST, COL_SESSION_MANIFEST])[COL_DATATYPE_MANIFEST].aggregate(
-        lambda descriptions: get_datatype_list(descriptions, description_datatype_map, seen=seen_datatypes)
-    )
+    df_imaging[COL_NEUROMELANIN_MANIFEST] = df_imaging[COL_DATATYPE_MANIFEST]
+    df_imaging = df_imaging.groupby([COL_SUBJECT_MANIFEST, COL_VISIT_MANIFEST, COL_SESSION_MANIFEST])[[COL_DATATYPE_MANIFEST, COL_NEUROMELANIN_MANIFEST]].aggregate({
+        COL_DATATYPE_MANIFEST: lambda descriptions: get_datatype_list(descriptions, description_datatype_map, seen=seen_datatypes),
+        COL_NEUROMELANIN_MANIFEST: lambda descriptions: any([re.search(RE_NEUROMELANIN, description) for description in descriptions]),
+    })
     df_imaging = df_imaging.reset_index()
     print(f'\nFinal imaging dataframe shape: {df_imaging.shape}')
 
@@ -264,6 +271,9 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
     df_manifest[COL_DATATYPE_MANIFEST] = df_manifest[COL_DATATYPE_MANIFEST].apply(
         lambda datatype: datatype if isinstance(datatype, list) else []
     )
+
+    # replace NA neuromelanin by False
+    df_manifest[COL_NEUROMELANIN_MANIFEST] = df_manifest[COL_NEUROMELANIN_MANIFEST].fillna(False)
 
     # convert session to BIDS format
     with_imaging = ~df_manifest[COL_SESSION_MANIFEST].isna()
