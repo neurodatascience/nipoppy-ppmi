@@ -272,6 +272,9 @@ def run(global_config_file: str, regenerate: bool, make_release: bool):
         lambda datatype: datatype if isinstance(datatype, list) else []
     )
 
+    # replace NA neuromelanin by False
+    df_manifest[COL_NEUROMELANIN_MANIFEST] = df_manifest[COL_NEUROMELANIN_MANIFEST].fillna(False)
+
     # convert session to BIDS format
     with_imaging = ~df_manifest[COL_SESSION_MANIFEST].isna()
     df_manifest.loc[with_imaging, COL_SESSION_MANIFEST] = df_manifest.loc[with_imaging, COL_SESSION_MANIFEST].apply(
