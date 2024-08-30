@@ -53,10 +53,15 @@ FILTERS = {
     DATATYPE_FUNC: {
         'common_substrings': ['fmri', 'bold', 'rsmri'],
         'exclude_in': [
-            'NM - MT',      # neuromelanin
-            '2 NM-GRE',     # neuromelanin
-            '2D GRE_MT',    # 2D
-            '2D GRE-MT',    # 2D
+            'NM - MT',          # neuromelanin
+            '2 NM-GRE',         # neuromelanin
+            'NM-MT',            # neuromelanin
+            '2D GRE_MT',        # 2D
+            '2D GRE-MT',        # 2D
+            '2D GRE MT MTC-NO', # 2D
+            'DTI_B0_PA',        # DTI
+            'DTI_revB0_AP',     # DTI
+            't2_localizer',     # localizer
         ],
         'reject_substrings': ['phantom'],
     },
@@ -64,6 +69,7 @@ FILTERS = {
         'exclude_out': [
             'PPMI 2.0',
             'TRA/DUAL',
+            't2_localizer',
         ],
     }
 }
@@ -75,7 +81,6 @@ COMMON_SUBSTRINGS_ANAT_FLAIR = ['flair']
 EXCLUDE_IN_ANAT = [
     # 2D
     'ax t1 reformat',
-    'AX GRE -MT',
     'AX DUAL_TSE',
     'DUAL_TSE',
     'TRA/DUAL',
@@ -83,7 +88,6 @@ EXCLUDE_IN_ANAT = [
     'SURVEY',
     'Double_TSE',
     'localizer',
-    'AX GRE -MT REPEAT',
     '3 Plane Localizer',
     'TRA',          # 55 slices in one dimension
     'SAG',          # 55 slices in one dimension
@@ -117,7 +121,34 @@ FILTERS.update({
     SUFFIX_T1: {
         'common_substrings': COMMON_SUBSTRINGS_ANAT_T1,
         'reject_substrings': REJECT_SUBSTRINGS_ANAT + COMMON_SUBSTRINGS_ANAT_T2 + COMMON_SUBSTRINGS_ANAT_T2_STAR + COMMON_SUBSTRINGS_ANAT_FLAIR,
-        'reject_substrings_exceptions': ['T1 REPEAT2'], # contains 'T2'
+        'reject_substrings_exceptions': [
+            'T1 REPEAT2', # contains 'T2'
+            # neuromelanin, contains '2D'
+            '2D GRE-NM',
+            '2D GRE-NMMT',
+            '2D GRE-NM_MT',
+            '2D GRE - MT',
+            '2D GRE MT',
+            '2D GRE MT MTC-NO',
+            '2D GRE-MT',
+            '2D GRE-MT 1',
+            '2D GRE-MT 2',
+            '2D GRE-MT 3',
+            '2D GRE-MT 4',
+            '2D GRE-MT 5',
+            '2D GRE-MT Q9R1007332',
+            '2D GRE-MT_ACPC',
+            '2D GRE-MT_RPT2',
+            '2D GRE_MT',
+            '2D-GRE MT',
+            '2D-GRE-MT',
+            '2DGRE-MT',
+            '2D_GRE-MT',
+            '2D_GRE_MT',
+            'AX 2D GRE-MT',
+            'AXIAL 2D GRE-MT',
+            'LOWER 2D GRE MT',
+        ],
     },
     SUFFIX_T2: {
         'common_substrings': COMMON_SUBSTRINGS_ANAT_T2,
