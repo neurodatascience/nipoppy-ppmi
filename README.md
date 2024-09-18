@@ -2,7 +2,60 @@
 
 This repository contains code to process tabular and imaging data from the Parkinson's Progression Markers Initiative (PPMI) dataset using the [Nipoppy framework](https://nipoppy.readthedocs.io/en/stable/).
 
-## DICOM
+## PPMI CSV files to download from LONI
+
+Image collections
+- `idaSearch.csv`
+    - Advanced Search
+    - Check every box in "Display in result" column
+    - Check "DTI" + "MRI" + "fMRI" in "Modality"
+
+Study data
+- Study Docs: Data & Databases
+    - `Code_List_-__Annotated_.csv`
+    - `Data_Dictionary_-__Annotated_.csv`
+- Subject Characteristics: Patient Status
+    - `Participant_Status.csv`
+- Subject Characteristics: Subject Demographics
+    - `Age_at_visit.csv`
+    - `Demographics.csv`
+    - `Socio-Economics.csv`
+- Medical History: Medical
+    - `Clinical_Diagnosis.csv`
+    - `Primary_Clinical_Diagnosis.csv`
+- Motor Assessments: Motor / MDS-UPDRS
+    - `MDS-UPDRS_Part_I.csv`
+    - `MDS-UPDRS_Part_III.csv`
+    - `MDS_UPDRS_Part_II__Patient_Questionnaire.csv`
+    - `MDS-UPDRS_Part_I_Patient_Questionnaire.csv`
+    - `MDS-UPDRS_Part_IV__Motor_Complications.csv`
+- Non-motor Assessments: ALL
+    - All downloaded, though not all used or up-to-date 
+    - `Benton_Judgement_of_Line_Orientation.csv`
+    - `Clock_Drawing.csv`
+    - `Cognitive_Categorization.csv`
+    - `Cognitive_Change.csv`
+    - `Epworth_Sleepiness_Scale.csv`
+    - `Geriatric_Depression_Scale__Short_Version_.csv`
+    - `Hopkins_Verbal_Learning_Test_-_Revised.csv`
+    - `Letter_-_Number_Sequencing.csv`
+    - `Lexical_Fluency.csv`
+    - `Modified_Boston_Naming_Test.csv`
+    - `Modified_Semantic_Fluency.csv`
+    - `Montreal_Cognitive_Assessment__MoCA_.csv`
+    - `Neuro_QoL__Cognition_Function_-_Short_Form.csv`
+    - `Neuro_QoL__Communication_-_Short_Form.csv`
+    - `QUIP-Current-Short.csv`
+    - `REM_Sleep_Behavior_Disorder_Questionnaire.csv`
+    - `SCOPA-AUT.csv`
+    - `State-Trait_Anxiety_Inventory.csv`
+    - `Symbol_Digit_Modalities_Test.csv`
+    - `Trail_Making_A_and_B.csv`
+    - `University_of_Pennsylvania_Smell_Identification_Test_UPSIT.csv`
+
+## Manifest generation
+
+## DICOM download/reorg
 
 ### PPMI data portal (LONI IDA)
 
