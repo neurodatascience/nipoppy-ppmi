@@ -4,11 +4,11 @@ DEFAULT_FNAME_IMAGING_DESCRIPTIONS = (
 )
 DEFAULT_FNAME_IMAGING_IGNORED = "ppmi_imaging_ignored.csv"  # output file name
 
-# ========== DATATYPES ==========
-DATATYPE_DWI = "dwi"  # BIDS standard
+# ========== BIDS ==========
+DATATYPE_DWI = "dwi"  # BIDS datatypes
 DATATYPE_FUNC = "func"
 DATATYPE_ANAT = "anat"
-SUFFIX_T1 = "T1w"  # BIDS standard (file suffix)
+SUFFIX_T1 = "T1w"  # BIDS suffixes
 SUFFIX_T2 = "T2w"
 SUFFIX_T2_STAR = "T2starw"
 SUFFIX_FLAIR = "FLAIR"
@@ -25,6 +25,7 @@ COL_GROUP_IMAGING = "Research Group"
 COL_MODALITY_IMAGING = "Modality"  # column name in PPMI schema
 COL_DESCRIPTION_IMAGING = "Description"
 COL_PROTOCOL_IMAGING = "Imaging Protocol"
+COL_IMAGE_ID = "Image ID"
 
 MODALITY_DWI = "DTI"  # PPMI "Modality" column
 MODALITY_FUNC = "fMRI"
@@ -52,3 +53,7 @@ GROUP_IMAGING_MAP = {
     "SWEDD": "SWEDD",
     "GenReg Unaff": "GenReg Unaff",  # not in participant status file
 }
+
+# ========== NEUROMELANIN ==========
+COL_NEUROMELANIN_MANIFEST = "neuromelanin"
+RE_NEUROMELANIN = "([nN][mM])|([gG][rR][eE].*[mM][tT])"  # neuromelanin pattern

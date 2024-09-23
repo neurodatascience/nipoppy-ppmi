@@ -12,9 +12,7 @@ from nipoppy.cli.parser import add_arg_dataset_root, add_arg_dry_run
 from nipoppy.logger import add_logfile
 from nipoppy.workflows import BaseWorkflow
 
-# BIDS datatypes are folder names under the subject folder, typically related to imaging modalities (anat, dwi, func, etc.)
-# BIDS suffixes are the last suffix before the file extension in a filename, typically related to image contrast (T1w, etc.)
-# https://bids-specification.readthedocs.io/en/stable/05-derivatives/02-common-data-types.html#preprocessed-or-cleaned-data
+from nipoppy_ppmi.custom_config import CustomConfig
 from nipoppy_ppmi.env import (
     DATATYPE_ANAT,
     DATATYPE_DWI,
@@ -32,7 +30,8 @@ from nipoppy_ppmi.env import (
     MODALITY_DWI,
     MODALITY_FUNC,
 )
-from nipoppy_ppmi.filters import EXCLUDE_IN_ANAT, EXCLUDE_IN_ANAT_T1, FILTERS
+from nipoppy_ppmi.imaging_filters import EXCLUDE_IN_ANAT, EXCLUDE_IN_ANAT_T1, FILTERS
+from nipoppy_ppmi.imaging_utils import get_all_descriptions
 
 # mapping from BIDS datatype/suffix to PPMI "Modality" column
 # the PPMI "Modality" column is not 100% accurate so we still have to check description strings
@@ -47,7 +46,7 @@ DATATYPE_MODALITY_MAP = {
 }
 
 FLAG_OVERWRITE = "--overwrite"
-DEFAULT_DPATH_OUT = Path(__file__).parent / "imaging_descriptions"
+DEFAULT_DPATH_OUT = Path(__file__).parent.parent / "imaging_descriptions"
 DEFAULT_INDENT = 4
 
 
@@ -57,7 +56,7 @@ class FilterImageDescriptionsWorkflow(BaseWorkflow):
         self,
         dpath_root: StrOrPathLike,
         dpath_out: StrOrPathLike,
-        fpath_imaging_relative: StrOrPathLike,
+        # fpath_imaging_relative: StrOrPathLike,
         fname_out_descriptions: StrOrPathLike = DEFAULT_FNAME_IMAGING_DESCRIPTIONS,
         fname_out_ignored: StrOrPathLike = DEFAULT_FNAME_IMAGING_IGNORED,
         indent: int = DEFAULT_INDENT,
@@ -73,39 +72,12 @@ class FilterImageDescriptionsWorkflow(BaseWorkflow):
             logger=logger,
             dry_run=dry_run,
         )
-        self.fpath_imaging_relative = Path(fpath_imaging_relative)
+        # self.fpath_imaging_relative = Path(fpath_imaging_relative)
         self.dpath_out = Path(dpath_out)
         self.fname_out_descriptions = fname_out_descriptions
         self.fname_out_ignored = fname_out_ignored
         self.overwrite = overwrite
         self.indent = indent
-
-    def _get_all_descriptions(self, descriptions_dict):
-
-        to_print = []
-
-        def _get_all_descriptions(
-            descriptions_dict_or_list, descriptions, print_prefix
-        ):
-            if isinstance(descriptions_dict_or_list, dict):
-                for (
-                    key,
-                    descriptions_subdict_or_list,
-                ) in descriptions_dict_or_list.items():
-                    to_print.append(f"{print_prefix}{key}:")
-                    descriptions = _get_all_descriptions(
-                        descriptions_subdict_or_list, descriptions, f"\t{print_prefix}"
-                    )
-            else:
-                to_print.append(f" {len(descriptions_dict_or_list)}\n")
-                descriptions.extend(descriptions_dict_or_list)
-            return descriptions
-
-        descriptions = _get_all_descriptions(descriptions_dict, [], "")
-        for line in "".join(to_print).split("\n"):
-            if len(line) > 0:
-                self.logger.debug(line)
-        return descriptions
 
     def _filter_descriptions(
         self,
@@ -295,7 +267,7 @@ class FilterImageDescriptionsWorkflow(BaseWorkflow):
     def run_main(self):
 
         # generate filepaths
-        fpath_imaging = self.dpath_root / self.fpath_imaging_relative
+        fpath_imaging = CustomConfig(**self.config.CUSTOM).IMAGING_INFO.FILEPATH
         fpath_out_descriptions = self.dpath_out / self.fname_out_descriptions
         fpath_out_ignored = self.dpath_out / self.fname_out_ignored
 
@@ -371,7 +343,7 @@ class FilterImageDescriptionsWorkflow(BaseWorkflow):
         )
 
         self.logger.debug(f"FINAL DESCRIPTIONS:")
-        descriptions_all = self._get_all_descriptions(descriptions)
+        descriptions_all = get_all_descriptions(descriptions, logger=self.logger)
 
         # check if output file already exists
         for fpath in [fpath_out_descriptions, fpath_out_ignored]:
@@ -413,15 +385,15 @@ if __name__ == "__main__":
         formatter_class=RichHelpFormatter,
     )
     add_arg_dataset_root(parser)
-    parser.add_argument(
-        "--fpath-imaging",
-        type=Path,
-        required=True,
-        help=(
-            "Path to the imaging data availability info file, relative to the "
-            "dataset root (e.g., idaSearch.csv)"
-        ),
-    )
+    # parser.add_argument(
+    #     "--fpath-imaging",
+    #     type=Path,
+    #     required=True,
+    #     help=(
+    #         "Path to the imaging data availability info file, relative to the "
+    #         "dataset root (e.g., idaSearch.csv)"
+    #     ),
+    # )
     parser.add_argument(
         "--dpath-out",
         type=Path,
@@ -468,7 +440,7 @@ if __name__ == "__main__":
 
     workflow = FilterImageDescriptionsWorkflow(
         dpath_root=args.dataset_root,
-        fpath_imaging_relative=args.fpath_imaging,
+        # fpath_imaging_relative=args.fpath_imaging,
         dpath_out=args.dpath_out,
         fname_out_descriptions=args.fname_out_descriptions,
         fname_out_ignored=args.fname_out_ignored,

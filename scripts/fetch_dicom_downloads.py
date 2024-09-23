@@ -251,13 +251,13 @@ if __name__ == "__main__":
         "--fpath-imaging",
         type=Path,
         required=True,
-        help="Path to the imaging data CSV file",
+        help="Path to the imaging data CSV file, relative to the dataset root",
     )
     parser.add_argument(
         "--fpath-imaging-descriptions",
         type=Path,
         required=True,
-        help="Path to the JSON file containing image descriptions for each datatype",
+        help="Absolute path to the JSON file containing image descriptions for each datatype",
     )
     parser.add_argument(
         "--session-id",
@@ -293,6 +293,7 @@ if __name__ == "__main__":
     # chunk_size = args.chunk_size
 
     workflow = FetchDicomDownloadsWorkflow(
+        dpath_root=args.dataset_root,
         fpath_imaging=args.fpath_imaging,
         fpath_descriptions=args.fpath_imaging_descriptions,
         session_id=args.session_id,
