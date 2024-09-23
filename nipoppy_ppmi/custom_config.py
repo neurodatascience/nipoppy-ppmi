@@ -18,3 +18,4 @@ class CustomConfig(BaseModel):
     DEMOGRAPHICS: dict[str, TabularFileConfig]
     ASSESSMENTS: dict[str, TabularFileConfig]
     IMAGING_INFO: FileConfig
+    IMAGE_DESCRIPTIONS: FileConfig

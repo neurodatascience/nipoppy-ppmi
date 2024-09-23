@@ -4,6 +4,7 @@ from functools import reduce
 import pandas as pd
 from nipoppy.tabular import Manifest
 
+from nipoppy_ppmi.custom_config import TabularFileConfig
 from nipoppy_ppmi.env import (
     COL_DESCRIPTION_IMAGING,
     COL_GROUP_IMAGING,
@@ -17,10 +18,10 @@ from nipoppy_ppmi.env import (
 )
 
 
-def load_tabular_df(fpath, visits=None, loading_func=None):
+def load_tabular_df(fpath, visits=None, loading_func=None, logger=None):
     df = pd.read_csv(fpath, dtype=str)
     if loading_func is not None:
-        df = loading_func(df)
+        df = loading_func(df, logger=logger)
     df = df.rename(
         columns={
             COL_SUBJECT_TABULAR: Manifest.col_participant_id,
@@ -34,12 +35,12 @@ def load_tabular_df(fpath, visits=None, loading_func=None):
 
 
 def get_tabular_info_and_merge(
-    info_dict, dpath_parent, df_manifest=None, visits=None, loading_func=None
+    info_dict, df_manifest=None, visits=None, loading_func=None, logger=None
 ):
     merge_how_with_index = "outer"  # 'outer' or 'left' (should be no difference if the index/manifest is correct)
 
     df_static, df_nonstatic = get_tabular_info(
-        info_dict, dpath_parent, visits=visits, loading_func=loading_func
+        info_dict, visits=visits, loading_func=loading_func, logger=logger
     )
 
     if df_nonstatic is None:
@@ -79,20 +80,22 @@ def get_tabular_info_and_merge(
         return df_merged
 
 
-def get_tabular_info(info_dict, dpath_parent, visits=None, loading_func=None):
+def get_tabular_info(
+    info_dict: dict[str, TabularFileConfig], visits=None, loading_func=None, logger=None
+):
     dfs_static = []  # no visit info (doesn't change over time)
     dfs_nonstatic = []
     for colname_in_bagel, col_info in info_dict.items():
-        is_static = col_info["IS_STATIC"].lower() in ["true", "1", "yes"]
         df = load_tabular_df(
-            dpath_parent / col_info["FILENAME"],
-            visits=(None if is_static else visits),
+            col_info.FILEPATH,
+            visits=(None if col_info.IS_STATIC else visits),
             loading_func=loading_func,
+            logger=logger,
         )
-        df = df.rename(columns={col_info["COLUMN"]: colname_in_bagel})
+        df = df.rename(columns={col_info.COLUMN: colname_in_bagel})
         # df = df.dropna(axis='index', how='any', subset=colname_in_bagel) # drop rows with missing values
 
-        if is_static:
+        if col_info.IS_STATIC:
             dfs_static.append(df[[Manifest.col_participant_id, colname_in_bagel]])
         else:
             # sanity check

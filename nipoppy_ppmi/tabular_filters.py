@@ -8,18 +8,22 @@ COL_EDUCATION = "EDUCYRS"
 COL_UPSIT = "UPSIT_PRCNTGE"
 
 
-def loading_func(df: pd.DataFrame):
+def loading_func(df: pd.DataFrame, logger=None):
+    def log(msg):
+        if logger is not None:
+            logger.info(msg)
+
     if COL_UPDRS3 in df.columns:
-        print(f"Filtering {COL_UPDRS3}")
+        log(f"Filtering {COL_UPDRS3}")
         df = updrs3_on_off_splitter(df)
     if COL_AGE in df.columns:
-        print(f"Filtering {COL_AGE}")
+        log(f"Filtering {COL_AGE}")
         df = age_filter(df)
     if COL_EDUCATION in df.columns:
-        print(f"Filtering {COL_EDUCATION}")
+        log(f"Filtering {COL_EDUCATION}")
         df = education_filter(df)
     if COL_UPSIT in df.columns:
-        print(f"Filtering {COL_UPSIT}")
+        log(f"Filtering {COL_UPSIT}")
         df = upsit_filter(df)
     return df
 
@@ -145,7 +149,7 @@ def education_filter(df: pd.DataFrame):
         df, [COL_SUBJECT_TABULAR], COL_EDUCATION
     )
     for subject_to_fix in subjects_with_multiple_edu:
-        duplicate_edus = groups.get_group(subject_to_fix)
+        duplicate_edus = groups.get_group((subject_to_fix,))
         df_no_duplicates.loc[subject_to_fix, COL_EDUCATION] = duplicate_edus.mean()
     df_no_duplicates = df_no_duplicates.reset_index()
     df_no_duplicates = df_no_duplicates.sort_values(
