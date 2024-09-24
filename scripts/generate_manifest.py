@@ -11,6 +11,8 @@ import pandas as pd
 from nipoppy.cli.parser import add_arg_dataset_root, add_arg_dry_run
 from nipoppy.logger import add_logfile, capture_warnings
 from nipoppy.tabular import Manifest
+from nipoppy.tabular.dicom_dir_map import DicomDirMap
+from nipoppy.utils import session_id_to_bids_session
 from nipoppy.workflows import BaseWorkflow
 from rich_argparse import RichHelpFormatter
 
@@ -391,10 +393,28 @@ class ManifestWorkflow(BaseWorkflow):
         df_manifest = df_manifest.loc[df_manifest.astype(str).drop_duplicates().index]
 
         # validate
-        df_manifest = Manifest(df_manifest).validate().sort_values()
+        df_manifest: Manifest = Manifest(df_manifest).validate().sort_values()
 
         self.logger.info("\nCreated manifest:" f"\n{df_manifest}")
         self.save_tabular_file(df_manifest, self.layout.fpath_manifest)
+
+        # also create the participant dicom dir
+        # add dicom directory information
+        if self.config.DICOM_DIR_MAP_FILE is None:
+            raise RuntimeError("DICOM_DIR_MAP_FILE not specified in the global config")
+        df_dicom_dir_map = df_manifest.get_imaging_subset()
+        df_dicom_dir_map[DicomDirMap.col_participant_dicom_dir] = (
+            df_dicom_dir_map.apply(
+                lambda df: (
+                    f"{session_id_to_bids_session(df[Manifest.col_session_id])}/{df[Manifest.col_participant_id]}"
+                    if not pd.isna(df[Manifest.col_session_id])
+                    else np.nan
+                ),
+                axis="columns",
+            )
+        )
+        df_dicom_dir_map = DicomDirMap(df_dicom_dir_map).validate()
+        self.save_tabular_file(df_dicom_dir_map, self.config.DICOM_DIR_MAP_FILE)
 
 
 if __name__ == "__main__":
