@@ -25,8 +25,12 @@ FPATH_URLS=$1       # file containing all the download links (from LONI) (can in
 HOST=$2             # remote host machine address
 DPATH_REMOTE=$3     # destination directory on remote host machine
 
+SUFFIX=".zip"
+
 # create new destination directory if needed
 ssh $HOST "mkdir -p $DPATH_REMOTE"
+
+I_FILE=1
 
 for URL in `cat $FPATH_URLS`
 do
@@ -34,9 +38,12 @@ do
     FILENAME=${URL##*/}
     FILENAME=${FILENAME##*=} # needed for metadata file
 
+    # add an index number because the files are all named the same
+    FILENAME="`basename $FILENAME $SUFFIX`-$I_FILE$SUFFIX"
+
     # check if file already exists
     FPATH_REMOTE=$DPATH_REMOTE/$FILENAME
-    FILE_EXISTS=`ssh bic "[[ -f $FPATH_REMOTE ]] && echo $FPATH_REMOTE"`
+    FILE_EXISTS=`ssh $HOST "[[ -f $FPATH_REMOTE ]] && echo $FPATH_REMOTE"`
 
     if [[ -z $FILE_EXISTS ]]
     then
@@ -59,4 +66,6 @@ do
 
     echo $COMMAND
     eval $COMMAND
+
+    I_FILE=$((I_FILE+1))
 done
