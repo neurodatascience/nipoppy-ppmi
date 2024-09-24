@@ -9,19 +9,16 @@ from pathlib import Path
 import pandas as pd
 from joblib import Parallel, delayed
 from nipoppy.cli.parser import add_arg_dataset_root
-from nipoppy.layout import DEFAULT_LAYOUT_INFO
 from nipoppy.logger import add_logfile
-from nipoppy.utils import session_id_to_bids_session
 from nipoppy.tabular import Doughnut, Manifest
 from nipoppy.workflows import BaseWorkflow
 from rich_argparse import RichHelpFormatter
 
+from nipoppy_ppmi.custom_config import CustomConfig
 from nipoppy_ppmi.env import (
     COL_IMAGE_ID,
-    DEFAULT_FNAME_IMAGING_DESCRIPTIONS,
     DATATYPE_ANAT,
     DATATYPE_DWI,
-    DATATYPE_FUNC,
 )
 from nipoppy_ppmi.imaging_utils import get_all_descriptions
 from nipoppy_ppmi.tabular_utils import load_and_process_df_imaging
@@ -42,52 +39,45 @@ DEFAULT_CHUNK_SIZE = 1000
 # FPATH_LOGS_RELATIVE = Path("scratch", "logs", "fetch_dicom_downloads.log")
 
 
-def _check_image_id(dpath_raw_dicom, subject, image_id):
-    str_pattern = str(dpath_raw_dicom / subject / "*" / "**" / f"I{image_id}" / "*.dcm")
-    return len(list(glob.glob(str_pattern))) > 0
+def _check_image_id(dpath_raw_dicom, image_id):
+    return next(Path(dpath_raw_dicom).glob(f"*/**/I{image_id}/*.dcm"), None) is not None
 
 
 class FetchDicomDownloadsWorkflow(BaseWorkflow):
 
     def __init__(
         self,
-        fpath_imaging,
-        fpath_descriptions,
         session_id,
         n_jobs,
         datatypes,
         chunk_size=None,
         **kwargs,
     ):
-        super().__init__(name="fetch_dicom_downloads", **kwargs)
-        self.fpath_imaging = Path(fpath_imaging)
-        self.fpath_descriptions = Path(fpath_descriptions)
-        self.session_id = session_id_to_bids_session(session_id)
+        super().__init__(name=Path(__file__).stem, **kwargs)
+        self.session_id = session_id
         self.n_jobs = n_jobs
         self.datatypes = datatypes
         self.chunk_size = chunk_size
 
     def run_main(self):
 
-        # build path to directory containing raw DICOMs for the session
-        dpath_raw_dicom_session = self.layout.dpath_raw_imaging / self.session_id
+        # use old path
+        dpath_raw_dicom = self.layout.dpath_scratch / "raw_dicom"
+
+        # get custom config
+        custom_config = CustomConfig(**self.config.CUSTOM)
 
         # load imaging data
-        if not self.fpath_imaging.exists():
+        fpath_imaging = custom_config.IMAGING_INFO.FILEPATH
+        if not fpath_imaging.exists():
             raise FileNotFoundError(
-                f"Cannot find imaging data information file: {self.fpath_imaging}"
+                f"Cannot find imaging data information file: {fpath_imaging}"
             )
-        df_imaging = load_and_process_df_imaging(self.fpath_imaging)
-        df_imaging[Manifest.col_session_id] = df_imaging[Manifest.col_session_id].apply(
-            session_id_to_bids_session
-        )
-
-        # load status data
-        df_doughnut_session: Doughnut = self.doughnut.get_imaging_subset(
-            session_id=self.session_id
-        )
+        df_imaging = load_and_process_df_imaging(fpath_imaging)
+        self.logger.debug(f"\nLoaded imaging data availability file\n{df_imaging}")
 
         # load image series descriptions (needed to identify images that are anat/dwi/func)
+        self.fpath_descriptions = custom_config.IMAGE_DESCRIPTIONS.FILEPATH
         if not self.fpath_descriptions.exists():
             raise FileNotFoundError(
                 f"Cannot find JSON file containing lists of description strings for datatypes: {self.fpath_descriptions}"
@@ -97,7 +87,7 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
 
         # gather all relevant series descriptions to download
         descriptions = set()
-        for datatype in datatypes:
+        for datatype in self.datatypes:
             descriptions.update(
                 get_all_descriptions(datatype_descriptions_map[datatype])
             )
@@ -106,26 +96,47 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
         df_imaging_keep = df_imaging.loc[
             (
                 df_imaging[Manifest.col_participant_id].isin(
-                    df_doughnut_session[Manifest.col_participant_id]
+                    self.doughnut.get_imaging_subset(session_id=self.session_id)[
+                        Manifest.col_participant_id
+                    ]
                 )
             )
             & (df_imaging[Manifest.col_session_id] == self.session_id)
             & (df_imaging[Manifest.col_datatype].isin(descriptions))
         ].copy()
-        participants_all = set(df_imaging_keep[Manifest.col_participant_id])
-
-        # find participants who have already been downloaded
-        participants_downloaded = set(
-            df_doughnut_session.get_downloaded_participants_sessions()[
-                Manifest.col_participant_id
+        participants_all = set(
+            [
+                p
+                for p, _ in self.manifest.get_participants_sessions(
+                    session_id=self.session_id
+                )
             ]
-            # df_status.loc[
-            #     (
-            #         (df_status[Manifest.col_session_id] == session_id)
-            #         & df_status[Doughnut.col_in_raw_imaging]
-            #     ),
-            #     Manifest.col_participant_id,
-            # ]
+        )
+
+        # find participants that have already been downloaded/reorganized/bidsified
+        participants_downloaded = set(
+            [
+                p
+                for p, _ in self.doughnut.get_downloaded_participants_sessions(
+                    session_id=self.session_id
+                )
+            ]
+        )
+        participants_downloaded.update(
+            [
+                p
+                for p, _ in self.doughnut.get_organized_participants_sessions(
+                    session_id=self.session_id
+                )
+            ]
+        )
+        participants_downloaded.update(
+            [
+                p
+                for p, _ in self.doughnut.get_bidsified_participants_sessions(
+                    session_id=self.session_id
+                )
+            ]
         )
 
         # get image IDs that need to be checked/downloaded
@@ -135,10 +146,12 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
         ].copy()
 
         # check if any image ID has already been downloaded
-        check_status = Parallel(n_jobs=n_jobs)(
+        check_status = Parallel(n_jobs=self.n_jobs)(
             delayed(_check_image_id)(
-                dpath_raw_dicom_session,
-                participant_id,
+                dpath_raw_dicom
+                / self.dicom_dir_map.get_dicom_dir(
+                    participant_id=participant_id, session_id=self.session_id
+                ),
                 image_id,
             )
             for participant_id, image_id in df_imaging_to_check[
@@ -157,22 +170,15 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
         for participant_id in participants_to_update:
             self.doughnut.set_status(
                 participant_id=participant_id,
-                session_id=session_id,
+                session_id=self.session_id,
                 col=Doughnut.col_in_raw_imaging,
                 status=True,
             )
-            # df_doughnut_session.loc[
-            #     df_doughnut_session[Manifest.col_participant_id].isin(
-            #         participants_to_update
-            #     ),
-            #     Doughnut.col_in_raw_imaging,
-            # ] = True
-            # self.doughnut.loc[df_doughnut_session.index] = df_doughnut_session
         self.save_tabular_file(self.doughnut, self.layout.fpath_doughnut)
 
         self.logger.info(
             f"\n\n===== {Path(__file__).name.upper()} ====="
-            f'\n{len(participants_all)} participant(s) have imaging data for session "{session_id}"'
+            f'\n{len(participants_all)} participant(s) have imaging data for session "{self.session_id}"'
             f"\n{len(participants_downloaded)} participant(s) already have downloaded data according to the status file"
             f"\n{len(df_imaging_to_check)} images(s) to check ({len(participants_to_check)} participant(s))"
             f"\n\tFound {int(df_imaging_to_check[Doughnut.col_in_raw_imaging].sum())} images already downloaded"
@@ -191,9 +197,8 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
         )
 
         # output a single chunk if no size is specified
-        if chunk_size is None or chunk_size < 1:
-            chunk_size = len(image_ids_to_download)
-            self.logger.info(f"Using chunk_size={chunk_size}")
+        if self.chunk_size is None or self.chunk_size < 1:
+            self.chunk_size = len(image_ids_to_download)
 
         # dump image ID list into comma-separated list(s)
         n_lists = 0
@@ -211,10 +216,10 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
             for _, image_ids_for_subject in image_ids_to_download.groupby(
                 Manifest.col_participant_id
             ):
-                if len(download_list) + len(image_ids_for_subject) > chunk_size:
+                if len(download_list) + len(image_ids_for_subject) > self.chunk_size:
                     if len(download_list) == 0:
                         raise RuntimeError(
-                            f"chunk_size of {chunk_size} is too small, try increasing to {len(image_ids_for_subject)}"
+                            f"chunk_size of {self.chunk_size} is too small, try increasing to {len(image_ids_for_subject)}"
                         )
                     break
                 download_list.extend(image_ids_for_subject[COL_IMAGE_ID].to_list())
@@ -230,12 +235,12 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
                 image_ids_to_download = []
 
         self.logger.info(
-            f"\n\n===== DOWNLOAD LIST(S) FOR {session_id.upper()} =====\n"
+            f"\n\n===== DOWNLOAD LIST(S) FOR {self.session_id.upper()} =====\n"
             f"{download_lists_str}\n"
             '\nCopy the above list(s) into the "Image ID" field in the LONI Advanced Search tool'
             '\nMake sure to check the "DTI", "MRI", and "fMRI" boxes for the "Modality" field'
             "\nCreate a new collection and download the DICOMs, then unzip them in"
-            f"\n{dpath_raw_dicom_session} and move the"
+            "\nthe raw DICOM directory and move the"
             '\nsubject directories outside of the top-level "PPMI" directory'
             "\n"
         )
@@ -247,18 +252,6 @@ if __name__ == "__main__":
         formatter_class=RichHelpFormatter,
     )
     add_arg_dataset_root(parser)
-    parser.add_argument(
-        "--fpath-imaging",
-        type=Path,
-        required=True,
-        help="Path to the imaging data CSV file, relative to the dataset root",
-    )
-    parser.add_argument(
-        "--fpath-imaging-descriptions",
-        type=Path,
-        required=True,
-        help="Absolute path to the JSON file containing image descriptions for each datatype",
-    )
     parser.add_argument(
         "--session-id",
         type=str,
@@ -275,7 +268,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--datatypes",
         nargs="+",
-        help=f"BIDS datatypes to download (default: {DEFAULT_DATATYPES})",
+        help=f"BIDS datatypes to consider (default: {DEFAULT_DATATYPES})",
         default=DEFAULT_DATATYPES,
     )
     parser.add_argument(
@@ -286,16 +279,9 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    # fpath_global_config = args.global_config
-    # session_id = args.session_id
-    # n_jobs = args.n_jobs
-    # datatypes = args.datatypes
-    # chunk_size = args.chunk_size
 
     workflow = FetchDicomDownloadsWorkflow(
         dpath_root=args.dataset_root,
-        fpath_imaging=args.fpath_imaging,
-        fpath_descriptions=args.fpath_imaging_descriptions,
         session_id=args.session_id,
         n_jobs=args.n_jobs,
         datatypes=args.datatypes,
