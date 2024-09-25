@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-import glob
 import json
 import logging
 from pathlib import Path
@@ -40,7 +39,7 @@ DEFAULT_CHUNK_SIZE = 1000
 
 
 def _check_image_id(dpath_raw_dicom, image_id):
-    return next(Path(dpath_raw_dicom).glob(f"*/**/I{image_id}/*.dcm"), None) is not None
+    return next(Path(dpath_raw_dicom).glob(f"**/I{image_id}/*.dcm"), None) is not None
 
 
 class FetchDicomDownloadsWorkflow(BaseWorkflow):
@@ -60,9 +59,6 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
         self.chunk_size = chunk_size
 
     def run_main(self):
-
-        # use old path
-        dpath_raw_dicom = self.layout.dpath_scratch / "raw_dicom"
 
         # get custom config
         custom_config = CustomConfig(**self.config.CUSTOM)
@@ -112,6 +108,9 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
                 )
             ]
         )
+        self.logger.info(
+            f'{len(participants_all)} participant(s) have imaging data for session "{self.session_id}"'
+        )
 
         # find participants that have already been downloaded/reorganized/bidsified
         participants_downloaded = set(
@@ -138,6 +137,9 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
                 )
             ]
         )
+        self.logger.info(
+            f"{len(participants_downloaded)} participant(s) already have data on disk according to the status file"
+        )
 
         # get image IDs that need to be checked/downloaded
         participants_to_check = participants_all - participants_downloaded
@@ -145,10 +147,14 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
             df_imaging_keep[Manifest.col_participant_id].isin(participants_to_check),
         ].copy()
 
+        self.logger.info(
+            f"{len(df_imaging_to_check)} images(s) to check ({len(participants_to_check)} participant(s))"
+        )
+
         # check if any image ID has already been downloaded
         check_status = Parallel(n_jobs=self.n_jobs)(
             delayed(_check_image_id)(
-                dpath_raw_dicom
+                self.layout.dpath_raw_imaging
                 / self.dicom_dir_map.get_dicom_dir(
                     participant_id=participant_id, session_id=self.session_id
                 ),
@@ -159,6 +165,13 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
             ].itertuples(index=False)
         )
         df_imaging_to_check[Doughnut.col_in_raw_imaging] = check_status
+
+        self.logger.info(
+            f"\tFound {int(df_imaging_to_check[Doughnut.col_in_raw_imaging].sum())} images already downloaded"
+        )
+        self.logger.info(
+            f"\tRemaining {int((~df_imaging_to_check[Doughnut.col_in_raw_imaging]).sum())} images need to be downloaded from LONI"
+        )
 
         # update status file
         participants_to_update = set(
@@ -174,18 +187,10 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
                 col=Doughnut.col_in_raw_imaging,
                 status=True,
             )
-        self.save_tabular_file(self.doughnut, self.layout.fpath_doughnut)
-
         self.logger.info(
-            f"\n\n===== {Path(__file__).name.upper()} ====="
-            f'\n{len(participants_all)} participant(s) have imaging data for session "{self.session_id}"'
-            f"\n{len(participants_downloaded)} participant(s) already have downloaded data according to the status file"
-            f"\n{len(df_imaging_to_check)} images(s) to check ({len(participants_to_check)} participant(s))"
-            f"\n\tFound {int(df_imaging_to_check[Doughnut.col_in_raw_imaging].sum())} images already downloaded"
-            f"\n\tRemaining {int((~df_imaging_to_check[Doughnut.col_in_raw_imaging]).sum())} images need to be downloaded from LONI"
-            f"\nUpdated status for {len(participants_to_update)} participant(s)"
-            "\n"
+            f"Updated status for {len(participants_to_update)} participant(s)"
         )
+        self.save_tabular_file(self.doughnut, self.layout.fpath_doughnut)
 
         # get images to download
         image_ids_to_download = df_imaging_to_check.loc[
@@ -201,13 +206,13 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
             self.chunk_size = len(image_ids_to_download)
 
         # dump image ID list into comma-separated list(s)
+        self.logger.info(f"----- DOWNLOAD LIST(S) FOR {self.session_id.upper()} -----")
         n_lists = 0
-        download_lists_str = ""
         while len(image_ids_to_download) > 0:
             n_lists += 1
 
-            if download_lists_str != "":
-                download_lists_str += "\n\n"
+            # if download_lists_str != "":
+            #     download_lists_str += "\n\n"
 
             # generate the list of image IDs to download
             # all images from the same subject must be in the same list
@@ -225,8 +230,9 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
                 download_list.extend(image_ids_for_subject[COL_IMAGE_ID].to_list())
 
             # build string to print out in one shot by the logger
-            download_lists_str += f"LIST {n_lists} ({len(download_list)})\n"
-            download_lists_str += ",".join(download_list)
+            self.logger.info(
+                f"LIST {n_lists} ({len(download_list)})\n{','.join(download_list)}"
+            )
 
             # update for next iteration
             if len(download_list) < len(image_ids_to_download):
@@ -235,14 +241,17 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
                 image_ids_to_download = []
 
         self.logger.info(
-            f"\n\n===== DOWNLOAD LIST(S) FOR {self.session_id.upper()} =====\n"
-            f"{download_lists_str}\n"
-            '\nCopy the above list(s) into the "Image ID" field in the LONI Advanced Search tool'
-            '\nMake sure to check the "DTI", "MRI", and "fMRI" boxes for the "Modality" field'
-            "\nCreate a new collection and download the DICOMs, then unzip them in"
-            "\nthe raw DICOM directory and move the"
-            '\nsubject directories outside of the top-level "PPMI" directory'
-            "\n"
+            'Copy the above list(s) into the "Image ID" field in the LONI Advanced Search tool'
+        )
+        self.logger.info(
+            'Make sure to check the "DTI", "MRI", and "fMRI" boxes for the "Modality" field'
+        )
+        self.logger.info(
+            "Create a new collection and download the DICOMs, then unzip them in"
+        )
+        self.logger.info("the raw DICOM directory and move the")
+        self.logger.info(
+            'subject directories outside of the top-level "PPMI" directory'
         )
 
 
@@ -281,7 +290,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     workflow = FetchDicomDownloadsWorkflow(
-        dpath_root=args.dataset_root,
+        dpath_root=args.dataset_root.expanduser(),
         session_id=args.session_id,
         n_jobs=args.n_jobs,
         datatypes=args.datatypes,
