@@ -15,17 +15,21 @@ _version.py
 
 # Jupyter Notebook
 .ipynb_checkpoints
-nipoppy/notebooks/.ipynb_checkpoints/*
 
 # logs/testing
 *.out
 *.log
+*.csv
+logs
 .coverage
 htmlcov
-old/
 
 # VS Code
 .vscode/
 
 # OSX
 .DS_STORE
+
+# other
+ignore
+commands.sh
