@@ -46,7 +46,7 @@ DATATYPE_MODALITY_MAP = {
 }
 
 FLAG_OVERWRITE = "--overwrite"
-DEFAULT_DPATH_OUT = Path(__file__).parent.parent / "imaging_descriptions"
+DEFAULT_DPATH_OUT = Path(__file__).parent.parent.parent / "imaging_descriptions"
 DEFAULT_INDENT = 4
 
 

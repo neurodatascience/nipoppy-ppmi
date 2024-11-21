@@ -154,7 +154,7 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
         # check if any image ID has already been downloaded
         check_status = Parallel(n_jobs=self.n_jobs)(
             delayed(_check_image_id)(
-                self.layout.dpath_raw_imaging
+                self.layout.dpath_pre_reorg
                 / self.dicom_dir_map.get_dicom_dir(
                     participant_id=participant_id, session_id=self.session_id
                 ),
@@ -164,19 +164,19 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
                 [Manifest.col_participant_id, COL_IMAGE_ID]
             ].itertuples(index=False)
         )
-        df_imaging_to_check[Doughnut.col_in_raw_imaging] = check_status
+        df_imaging_to_check[Doughnut.col_in_pre_reorg] = check_status
 
         self.logger.info(
-            f"\tFound {int(df_imaging_to_check[Doughnut.col_in_raw_imaging].sum())} images already downloaded"
+            f"\tFound {int(df_imaging_to_check[Doughnut.col_in_pre_reorg].sum())} images already downloaded"
         )
         self.logger.info(
-            f"\tRemaining {int((~df_imaging_to_check[Doughnut.col_in_raw_imaging]).sum())} images need to be downloaded from LONI"
+            f"\tRemaining {int((~df_imaging_to_check[Doughnut.col_in_pre_reorg]).sum())} images need to be downloaded from LONI"
         )
 
         # update status file
         participants_to_update = set(
             df_imaging_to_check.loc[
-                df_imaging_to_check[Doughnut.col_in_raw_imaging],
+                df_imaging_to_check[Doughnut.col_in_pre_reorg],
                 Manifest.col_participant_id,
             ]
         )
@@ -184,7 +184,7 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
             self.doughnut.set_status(
                 participant_id=participant_id,
                 session_id=self.session_id,
-                col=Doughnut.col_in_raw_imaging,
+                col=Doughnut.col_in_pre_reorg,
                 status=True,
             )
         self.logger.info(
@@ -194,7 +194,7 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
 
         # get images to download
         image_ids_to_download = df_imaging_to_check.loc[
-            ~df_imaging_to_check[Doughnut.col_in_raw_imaging],
+            ~df_imaging_to_check[Doughnut.col_in_pre_reorg],
             [Manifest.col_participant_id, COL_IMAGE_ID],
         ]
         image_ids_to_download = image_ids_to_download.sort_values(
