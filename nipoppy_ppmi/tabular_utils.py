@@ -1,5 +1,6 @@
 import warnings
 from functools import reduce
+from typing import Optional
 
 import pandas as pd
 from nipoppy.tabular import Manifest
@@ -35,7 +36,11 @@ def load_tabular_df(fpath, visits=None, loading_func=None, logger=None):
 
 
 def get_tabular_info_and_merge(
-    info_dict, df_manifest=None, visits=None, loading_func=None, logger=None
+    info_dict,
+    df_manifest: Optional[Manifest] = None,
+    visits=None,
+    loading_func=None,
+    logger=None,
 ):
     merge_how_with_index = "outer"  # 'outer' or 'left' (should be no difference if the index/manifest is correct)
 
@@ -53,9 +58,9 @@ def get_tabular_info_and_merge(
         # merge again
         check = df_manifest is not None
         if df_manifest is None:
-            df_manifest = df_nonstatic[
-                [Manifest.col_participant_id, Manifest.col_visit_id]
-            ]
+            df_manifest = df_nonstatic[Manifest.index_cols]
+        else:
+            df_manifest = df_manifest[Manifest.index_cols]
         df_nonstatic = merge_and_check(
             df_manifest,
             df_nonstatic,
@@ -161,7 +166,7 @@ def merge_and_check(
 
     if check and (df_merged[col_indicator] == check_condition).any():
         df_check = df_merged.loc[df_merged[col_indicator] == check_condition]
-        # df_check.to_csv('df_check.csv', index=False)
+        # df_check.to_csv("df_check.csv", index=False)
         warnings.warn(
             "Tabular dataframes have rows that do not match the manifest"
             ". Something is probably wrong with the manifest"

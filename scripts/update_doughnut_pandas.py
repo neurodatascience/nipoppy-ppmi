@@ -42,7 +42,7 @@ def run(
     fpath_doughnut: Path,
     fpath_out: Path,
 ):
-    df_doughnut = pd.read_csv(fpath_doughnut)
+    df_doughnut = pd.read_csv(fpath_doughnut, sep="\t", dtype=str)
     for index, row in df_doughnut.iterrows():
         for col, dpath_pattern in COL_DPATH_MAPPING.items():
             df_doughnut.loc[index, col] = check_status(
@@ -54,7 +54,7 @@ def run(
             )
 
     print(df_doughnut)
-    df_doughnut.to_csv(fpath_out, index=False)
+    df_doughnut.to_csv(fpath_out, sep="\t", index=False)
 
 
 if __name__ == "__main__":

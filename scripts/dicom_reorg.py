@@ -6,15 +6,12 @@ import logging
 import os
 from pathlib import Path
 from rich_argparse import RichHelpFormatter
-from typing import Optional
 
 import pydicom
 
-from nipoppy.env import LogColor, ReturnCode, StrOrPathLike
 from nipoppy.logger import add_logfile
-from nipoppy.tabular.doughnut import update_doughnut
-from nipoppy.utils import session_id_to_bids_session
-from nipoppy.workflows.base import BaseWorkflow
+from nipoppy.utils import session_id_to_bids_session_id
+from nipoppy.workflows import DicomReorgWorkflow
 
 
 def is_derived_dicom(fpath: Path) -> bool:
@@ -28,71 +25,20 @@ def is_derived_dicom(fpath: Path) -> bool:
     return "DERIVED" in img_types
 
 
-class CustomDicomReorgWorkflow(BaseWorkflow):
+class CustomDicomReorgWorkflow(DicomReorgWorkflow):
     """Workflow for organizing raw DICOM files."""
 
-    def __init__(
+    def apply_fname_mapping(
         self,
-        dpath_root: StrOrPathLike,
-        copy_files: bool = False,
-        check_dicoms: bool = False,
-        fpath_layout: Optional[StrOrPathLike] = None,
-        logger: Optional[logging.Logger] = None,
-        dry_run: bool = False,
-    ):
-        """Initialize the DICOM reorganization workflow."""
-        super().__init__(
-            dpath_root=dpath_root,
-            name="dicom_reorg",
-            fpath_layout=fpath_layout,
-            logger=logger,
-            dry_run=dry_run,
-        )
-        self.copy_files = copy_files
-        self.check_dicoms = check_dicoms
-
-        # the message logged in run_cleanup will depend on
-        # the final values for these attributes (updated in run_main)
-        self.n_success = 0
-        self.n_total = 0
-
-    def get_fpaths_to_reorg(
-        self,
+        fpath_source: str,
         participant_id: str,
         session_id: str,
-    ) -> list[Path]:
-        """Get file paths to reorganize for a single participant and session."""
-        dpath_downloaded = (
-            self.layout.dpath_raw_imaging
-            / self.dicom_dir_map.get_dicom_dir(
-                participant_id=participant_id, session_id=session_id
-            )
-        )
-
-        # make sure directory exists
-        if not dpath_downloaded.exists():
-            raise FileNotFoundError(
-                f"Raw DICOM directory not found for participant {participant_id}"
-                f" session {session_id}: {dpath_downloaded}"
-            )
-
-        # crawl through directory tree and get all file paths
-        fpaths = []
-        for dpath, _, fnames in os.walk(dpath_downloaded):
-            fpaths.extend(Path(dpath, fname) for fname in fnames)
-        return fpaths
-
-    def apply_fname_mapping(
-        self, fname_source: str, participant_id: str, session_id: str
     ) -> str:
-        """
-        Apply a mapping to the file name.
-
-        This method does not change the file name by default, but it can be overridden
-        if the file names need to be changed during reorganization (e.g. for easier
-        BIDS conversion).
-        """
-        return fname_source
+        # TODO get image ID from directory name
+        # if image ID is not in filename, add it to filename
+        return super().apply_fname_mapping(
+            fpath_source.name, participant_id, session_id
+        )
 
     def run_single(self, participant_id: str, session_id: str):
         """Reorganize downloaded DICOM files for a single participant and session."""
@@ -102,7 +48,7 @@ class CustomDicomReorgWorkflow(BaseWorkflow):
         # DIFFERENT FROM DEFAULT SCRIPT
         dpath_reorganized: Path = (
             self.layout.dpath_sourcedata
-            / session_id_to_bids_session(session_id)
+            / session_id_to_bids_session_id(session_id)
             / participant_id
         )
         self.mkdir(dpath_reorganized)
@@ -122,7 +68,7 @@ class CustomDicomReorgWorkflow(BaseWorkflow):
                     )
 
             fpath_dest = dpath_reorganized / self.apply_fname_mapping(
-                fpath_source.name, participant_id=participant_id, session_id=session_id
+                fpath_source, participant_id=participant_id, session_id=session_id
             )
 
             # do not overwrite existing files
@@ -151,82 +97,6 @@ class CustomDicomReorgWorkflow(BaseWorkflow):
             col=self.doughnut.col_in_sourcedata,
             status=True,
         )
-
-    def get_participants_sessions_to_run(self):
-        """Return participant-session pairs to reorganize."""
-        participants_sessions_organized = set(
-            self.doughnut.get_organized_participants_sessions()
-        )
-        for participant_session in self.doughnut.get_downloaded_participants_sessions():
-            if participant_session not in participants_sessions_organized:
-                yield participant_session
-
-    def run_setup(self):
-        """Update the doughnut in case it is not up-to-date."""
-        self.doughnut = update_doughnut(
-            doughnut=self.doughnut,
-            manifest=self.manifest,
-            dicom_dir_map=self.dicom_dir_map,
-            dpath_downloaded=self.layout.dpath_raw_imaging,
-            dpath_organized=self.layout.dpath_sourcedata,
-            dpath_bidsified=self.layout.dpath_bids,
-            logger=self.logger,
-        )
-
-    def run_main(self):
-        """Reorganize all downloaded DICOM files."""
-        for (
-            participant_id,
-            session_id,
-        ) in self.get_participants_sessions_to_run():
-            self.n_total += 1
-            try:
-                self.run_single(participant_id, session_id)
-                self.n_success += 1
-            except Exception as exception:
-                self.return_code = ReturnCode.PARTIAL_SUCCESS
-                self.logger.error(
-                    "Error reorganizing DICOM files for participant "
-                    f"{participant_id} session {session_id}: {exception}"
-                )
-
-    def run_cleanup(self):
-        """
-        Clean up after main DICOM reorg part is run.
-
-        Specifically:
-        - Write updated doughnut file
-        - Log a summary message
-        """
-        self.save_tabular_file(self.doughnut, self.layout.fpath_doughnut)
-
-        if self.n_total == 0:
-            self.logger.warning(
-                "No participant-session pairs to reorganize. Make sure there are no "
-                "mistakes in the dataset's manifest or config file, and/or check the "
-                f"doughnut file at {self.layout.fpath_doughnut}"
-            )
-        else:
-            # change the message depending on how successful the run was
-            prefix = "Reorganized"
-            suffix = ""
-            if self.n_success == 0:
-                color = LogColor.FAILURE
-            elif self.n_success == self.n_total:
-                color = LogColor.SUCCESS
-                prefix = f"Successfully {prefix.lower()}"
-                suffix = "!"
-            else:
-                color = LogColor.PARTIAL_SUCCESS
-
-            self.logger.info(
-                (
-                    f"[{color}]{prefix} files for {self.n_success} out of "
-                    f"{self.n_total} participant-session pairs{suffix}[/]"
-                )
-            )
-
-        return super().run_cleanup()
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ from nipoppy.cli.parser import add_arg_dataset_root, add_arg_dry_run
 from nipoppy.logger import add_logfile, capture_warnings
 from nipoppy.tabular import Manifest
 from nipoppy.tabular.dicom_dir_map import DicomDirMap
-from nipoppy.utils import session_id_to_bids_session
+from nipoppy.utils import session_id_to_bids_session_id
 from nipoppy.workflows import BaseWorkflow
 from rich_argparse import RichHelpFormatter
 
@@ -25,8 +25,8 @@ from nipoppy_ppmi.env import (
     DATATYPE_ANAT,
     DATATYPE_DWI,
     DATATYPE_FUNC,
-    RE_NEUROMELANIN,
 )
+from nipoppy_ppmi.heuristic import RE_NEUROMELANIN
 from nipoppy_ppmi.tabular_filters import loading_func
 from nipoppy_ppmi.imaging_utils import get_all_descriptions
 from nipoppy_ppmi.tabular_utils import get_tabular_info, load_and_process_df_imaging
@@ -406,7 +406,7 @@ class ManifestWorkflow(BaseWorkflow):
         df_dicom_dir_map[DicomDirMap.col_participant_dicom_dir] = (
             df_dicom_dir_map.apply(
                 lambda df: (
-                    f"{session_id_to_bids_session(df[Manifest.col_session_id])}/{df[Manifest.col_participant_id]}"
+                    f"{session_id_to_bids_session_id(df[Manifest.col_session_id])}/{df[Manifest.col_participant_id]}"
                     if not pd.isna(df[Manifest.col_session_id])
                     else np.nan
                 ),

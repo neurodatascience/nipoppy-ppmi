@@ -56,4 +56,3 @@ GROUP_IMAGING_MAP = {
 
 # ========== NEUROMELANIN ==========
 COL_NEUROMELANIN_MANIFEST = "neuromelanin"
-RE_NEUROMELANIN = "([nN][mM])|([gG][rR][eE].*[mM][tT])"  # neuromelanin pattern

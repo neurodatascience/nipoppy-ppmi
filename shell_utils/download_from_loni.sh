@@ -52,6 +52,7 @@ do
 
         # call wget from local machine, dump to stdout
         # and pipe to remote host using ssh
+        # https://superuser.com/questions/291829/how-do-i-scp-the-huge-output-of-a-command-directly-to-a-remote-machine
         COMMAND="(
             wget -O - '$URL' \
             | ssh $HOST 'cat > $FPATH_REMOTE'
