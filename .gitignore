@@ -33,3 +33,5 @@ htmlcov
 # other
 ignore
 commands.sh
+freesurfer_license.txt
+templateflow
