@@ -1,0 +1,119 @@
+#!/usr/bin/env python
+
+import argparse
+import logging
+
+import nibabel
+from nipoppy.cli.parser import (
+    add_arg_dataset_root,
+    add_arg_dry_run,
+    add_arg_verbosity,
+    add_args_participant_and_session,
+    VERBOSITY_TO_LOG_LEVEL_MAP,
+)
+from nipoppy.utils import (
+    participant_id_to_bids_participant_id,
+    session_id_to_bids_session_id,
+)
+from nipoppy.workflows import BaseWorkflow
+from nipoppy.logger import add_logfile, capture_warnings
+from rich_argparse import RichHelpFormatter
+
+
+class DwiBvalBvecWorkflow(BaseWorkflow):
+    def __init__(self, participant_id, session_id, **kwargs):
+        super().__init__(**kwargs, name="dwi_bval_bvec")
+        self.participant_id = participant_id
+        self.session_id = session_id
+
+    def run_main(self):
+
+        for (
+            participant_id,
+            session_id,
+        ) in self.doughnut.get_bidsified_participants_sessions(
+            participant_id=self.participant_id, session_id=self.session_id
+        ):
+
+            # find the dwi files
+            dpath_dwi = (
+                self.layout.dpath_bids
+                / participant_id_to_bids_participant_id(participant_id)
+                / session_id_to_bids_session_id(session_id)
+                / "dwi"
+            )
+
+            fpaths_dwi_nii = list(dpath_dwi.glob("*dwi.nii.gz"))
+            for fpath_nii in fpaths_dwi_nii:
+
+                self.logger.debug(f"Checking {fpath_nii}")
+                fpath_bval = (fpath_nii.parent / fpath_nii.stem).with_suffix(".bval")
+                fpath_bvec = (fpath_nii.parent / fpath_nii.stem).with_suffix(".bvec")
+
+                if not (fpath_bval.exists() and fpath_bvec.exists()):
+
+                    if not "acq-B0_" in fpath_nii.name:
+                        self.logger.warning(
+                            f"Skipping {fpath_nii} since filename does not imply that it is a B0 image, should check"
+                        )
+                        continue
+
+                    # load the file and check the number of volumes
+                    img = nibabel.load(fpath_nii)
+                    if len(img.shape) == 4:
+                        n_volumnes = img.shape[-1]
+                    elif len(img.shape) == 3:
+                        n_volumnes = 1
+                    else:
+                        self.logger.error(
+                            f"Image {fpath_nii} has {len(img.shape)} dimensions, not sure how to handle"
+                        )
+                        continue
+                    self.logger.debug(f"Image {fpath_nii} has {n_volumnes} volumes")
+
+                    self.logger.info(f"Adding bval and bvec files for {fpath_nii}")
+
+                    # write bval/bvec files
+                    if not self.dry_run:
+                        bvals = " ".join(["0"] * n_volumnes)
+                        bvecs = "\n".join([bvals] * 3)
+                        fpath_bval.write_text(f"{bvals}\n")
+                        fpath_bvec.write_text(f"{bvecs}\n")
+
+                elif (not fpath_bval.exists()) or (not fpath_bvec.exists()):
+                    self.logger.error(
+                        f"Only one of {fpath_bval} and {fpath_bvec} exists, not sure how to handle"
+                    )
+                    continue
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description=(
+            "Make sure that all dwi files have a corresponding bval and bvec file."
+        ),
+        formatter_class=RichHelpFormatter,
+    )
+    add_arg_dataset_root(parser)
+    add_args_participant_and_session(parser)
+    add_arg_dry_run(parser)
+    add_arg_verbosity(parser)
+
+    args = parser.parse_args()
+    workflow = DwiBvalBvecWorkflow(
+        participant_id=args.participant_id,
+        session_id=args.session_id,
+        dpath_root=args.dataset_root,
+        dry_run=args.dry_run,
+    )
+    workflow.logger.setLevel(VERBOSITY_TO_LOG_LEVEL_MAP[args.verbosity])
+    add_logfile(workflow.logger, workflow.generate_fpath_log())
+
+    # capture warnings
+    logging.captureWarnings(True)
+    capture_warnings(workflow.logger)
+
+    try:
+        workflow.run()
+    except Exception:
+        workflow.logger.exception("An error occurred while running the workflow.")
