@@ -1,6 +1,9 @@
 #!/bin/bash
 #SBATCH --mem=8G
 #SBATCH --time=1:30:00
+#SBATCH --array=0-9
+
+# TESTING='UNCOMMENT_IF_TESTING'
 
 echo "========== START TIME =========="
 echo `date`
@@ -14,6 +17,12 @@ then
     echo "TIMELIMIT:           $TIMELIMIT"
     echo "SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
     echo "WORKING DIRECTORY:   `pwd`"
+fi
+
+if [ ! -z $TESTING ]
+then
+    SLURM_ARRAY_TASK_ID=0
+    echo "This is a test, setting SLURM_ARRAY_TASK_ID to $SLURM_ARRAY_TASK_ID"
 fi
 
 echo "========== SETTINGS =========="
@@ -31,10 +40,10 @@ echo "FPATH_ZIP:             $FPATH_ZIP"
 echo "DPATH_DEST:            $DPATH_DEST"
 
 # append suffix to filepath
-if [[ ! -z $SLURM_ARRAY_TASK_ID && $SLURM_ARRAY_TASK_ID -gt 0 ]]
+if [[ ! -z $SLURM_ARRAY_TASK_ID ]]
 then
     SUFFIX=$SLURM_ARRAY_TASK_ID
-    FPATH_ZIP="${FPATH_ZIP%.*}$SUFFIX.${FPATH_ZIP##*.}"
+    FPATH_ZIP="${FPATH_ZIP%.*}-$SUFFIX.${FPATH_ZIP##*.}"
 
     echo "SUFFIX:                $SUFFIX"
     echo "FPATH_ZIP with suffix: $FPATH_ZIP"
@@ -53,7 +62,10 @@ fi
 if [ ! -d $DPATH_DEST ]
 then
     echo "[INFO] Creating directory $DPATH_DEST since it does not exist"
-    mkdir -p $DPATH_DEST
+    if [ -z $TESTING ]
+    then
+        mkdir -p $DPATH_DEST
+    fi
 fi
 
 # -q: quiet
@@ -61,7 +73,11 @@ fi
 # -d: output directory
 UNZIP_COMMAND="unzip -qo $FPATH_ZIP -d $DPATH_DEST " # add -o to overwrite
 echo "[RUN] $UNZIP_COMMAND"
-eval "$UNZIP_COMMAND"
+
+if [ -z $TESTING ]
+then
+    eval "$UNZIP_COMMAND"
+fi
 
 echo "========== END TIME =========="
 echo `date`

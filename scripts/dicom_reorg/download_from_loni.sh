@@ -15,7 +15,7 @@ then
     echo "- This script exists because LONI only allows downloads that are made from"
     echo "  the same computer that initiated the download on LONI. Since we cannot"
     echo "  easily initialize the download from a remote server (requires GUI/Internet),"
-    echo "  the files need to be downloaded locally and then transfer to the remote server."
+    echo "  the files need to be downloaded locally and then transfered to the remote server."
     echo "  This script saves local disk space by piping the download directly to the remote server."
     echo "- Sample unzipping command: unzip -q session_BL.zip -d <DATASET_ROOT>/scratch/raw_dicom/ses-BL/ &"
     exit 1
@@ -38,12 +38,12 @@ do
     FILENAME=${URL##*/}
     FILENAME=${FILENAME##*=} # needed for metadata file
 
-    # add an index number because the files are all named the same
+    # add an index number because sometimes there are files that are named the same...
     FILENAME="`basename $FILENAME $SUFFIX`-$I_FILE$SUFFIX"
 
     # check if file already exists
     FPATH_REMOTE=$DPATH_REMOTE/$FILENAME
-    FILE_EXISTS=`ssh $HOST "[[ -f $FPATH_REMOTE ]] && echo $FPATH_REMOTE"`
+    FILE_EXISTS=`ssh $HOST "ls $FPATH_REMOTE && echo $FPATH_REMOTE" 2>/dev/null`
 
     if [[ -z $FILE_EXISTS ]]
     then
@@ -52,16 +52,20 @@ do
 
         # call wget from local machine, dump to stdout
         # and pipe to remote host using ssh
-        # https://superuser.com/questions/291829/how-do-i-scp-the-huge-output-of-a-command-directly-to-a-remote-machine
         COMMAND="(
             wget -O - '$URL' \
             | ssh $HOST 'cat > $FPATH_REMOTE'
         ) &"
 
-    else
+    elif [[ $FILE_EXISTS == $FPATH_REMOTE ]]
+    then
 
         # don't overwrite file
         echo "$FPATH_REMOTE already exists on $HOST. Not downloading"
+
+    else
+        echo "Error: $FILE_EXISTS"
+        exit 1
 
     fi
 
