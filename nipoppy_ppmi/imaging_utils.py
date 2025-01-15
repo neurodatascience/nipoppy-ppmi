@@ -1,5 +1,7 @@
 from logging import Logger
 
+RE_IMAGE_ID = "(I[0-9]+)"  # regex
+
 
 def get_all_descriptions(descriptions_dict, logger: Logger | None = None):
 
