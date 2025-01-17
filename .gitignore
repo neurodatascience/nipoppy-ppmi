@@ -35,3 +35,4 @@ ignore
 commands.sh
 freesurfer_license.txt
 templateflow
+fake_bids

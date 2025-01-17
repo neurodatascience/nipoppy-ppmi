@@ -17,14 +17,17 @@ SUFFIX_T2_STAR = "T2starw"
 SUFFIX_FLAIR = "FLAIR"
 SUFFIX_DWI = "dwi"
 
+DPATH_CURRENT = Path(__file__).parent
+
 # datatype/suffix to description mapping (from nipoppy-ppmi script)
-# this file needs to be copied to the right directory before creating the container
-FPATH_DESCRIPTIONS = Path("/scratch/proc/ppmi_imaging_descriptions.json")
+# this file needs to be available in the container
+FPATH_DESCRIPTIONS = (
+    DPATH_CURRENT.parent / "imaging_descriptions" / "ppmi_imaging_descriptions.json"
+)
 
 # LONI IDA Search result file
-FPATH_IMAGING = Path(
-    "/scratch/tabular/other/idaSearch.csv"
-)  # TODO update when this file gets moved
+DPATH_DATASET_ROOT = DPATH_CURRENT.parent.parent
+FPATH_IMAGING = DPATH_DATASET_ROOT / "sourcedata" / "tabular" / "idaSearch.csv"
 COL_PROTOCOL = "Imaging Protocol"
 COL_IMAGE_ID = "Image ID"
 COL_MODALITY = "Modality"
@@ -376,25 +379,111 @@ class HeuristicHelper:
 if __name__ == "__main__":
 
     HELPTEXT = """
-    Test HeuDiConv heuristic function (infotodict). Creates empty .nii.gz files with names determined by the heuristic function in an output directory.
+    Test HeuDiConv heuristic function (infotodict). Creates empty .nii.gz files
+    with names determined by the heuristic function in an output directory. Note
+    that this assumes that HeuDiConv will be run with the `-b`/`--bids` option!
     """
 
-    DPATH_CURRENT = Path(__file__).parent
-    FNAME_IMAGING = "idaSearch.csv"  # TODO use global configs
-    FNAME_DESCRIPTIONS = "ppmi_imaging_descriptions.json"
+    from nipoppy.config import Config
+    from nipoppy.layout import DatasetLayout
+    from nipoppy.workflows.base import BaseWorkflow
+    from nipoppy.utils import check_session_id
+
+    from nipoppy_ppmi.custom_config import CustomConfig
+
+    DEFAULT_DNAME_HEUDICONV = ".heudiconv"
     DEFAULT_DNAME_OUT = "fake_bids"
+
+    class HeuristicCheckWorkflow(BaseWorkflow):
+        def __init__(
+            self, dpath_root, fname_heudiconv, session_id, dpath_out, **kwargs
+        ):
+            super().__init__(dpath_root=dpath_root, name="heuristic_test", **kwargs)
+            self.fname_heudiconv = fname_heudiconv
+            self.session_id = check_session_id(session_id)
+            if dpath_out is not None:
+                dpath_out = Path(dpath_out)
+            self.dpath_out = dpath_out
+
+        def run_main(self):
+            custom_config = CustomConfig(**self.config.CUSTOM)
+
+            heuristic_helper = HeuristicHelper(
+                fpath_imaging=custom_config.IMAGING_INFO.FILEPATH,
+                fpath_descriptions=custom_config.IMAGE_DESCRIPTIONS.FILEPATH,
+            )
+
+            dpath_heudiconv: Path = self.layout.dpath_bids / self.fname_heudiconv
+            bids_session_id = f"ses-{self.session_id}"
+
+            error_messages = []
+
+            for dpath_subject in dpath_heudiconv.iterdir():
+
+                subject = dpath_subject.name
+                fpath_info = (
+                    dpath_subject / "info" / f"dicominfo_ses-{self.session_id}.tsv"
+                )
+
+                if not fpath_info.exists():
+                    error_messages.append(
+                        f"No info file found for subject {subject} session {self.session_id}"
+                    )
+                    continue
+
+                print(f"===== {subject} =====")
+                df_info = pd.read_csv(fpath_info, sep="\t", dtype=str)
+
+                info = {}
+                try:
+                    info = infotodict(
+                        df_info.itertuples(index=False),
+                        testing=True,
+                        heuristic_helper=heuristic_helper,
+                    )
+                except Exception as exception:
+                    error_messages.append(str(exception))
+
+                for key, value in info.items():
+                    template: str = key[0]
+                    print(f'{template}:\t{",".join(value)}')
+
+                    if self.dpath_out is not None:
+
+                        for i in range(len(value)):
+                            fpath_out: Path = (
+                                self.dpath_out
+                                / template.format(
+                                    subject=subject, session=bids_session_id, item=i + 1
+                                )
+                            ).with_suffix(".nii.gz")
+
+                            fpath_out.parent.mkdir(parents=True, exist_ok=True)
+                            fpath_out.touch()
+
+            print("===== ERRORS =====")
+            for error_message in error_messages:
+                print(error_message)
 
     parser = argparse.ArgumentParser(description=HELPTEXT)
 
     parser.add_argument(
-        "--global_config",
+        "--dataset",
+        type=Path,
+        required=False,
+        help=f"path to the dataset root",
+    )
+    parser.add_argument(
+        "--session-id",
         type=str,
         required=True,
-        help="path to global configs for a given mr_proc dataset",
+        help="session ID (without the BIDS prefix)",
     )
-    parser.add_argument("--session_id", type=str, required=True, help="session ID")
     parser.add_argument(
-        "--heudiconv", default=".heudiconv", type=str, help=".heudiconv directory name"
+        "--heudiconv",
+        default=DEFAULT_DNAME_HEUDICONV,
+        type=str,
+        help=f".heudiconv directory name ({DEFAULT_DNAME_HEUDICONV})",
     )
     parser.add_argument(
         "--out",
@@ -405,71 +494,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    fpath_global_config = args.global_config
-    session_id = f"ses-{args.session_id}"
-    fname_heudiconv = args.heudiconv
-
-    if args.out is not None:
-        dpath_out = DPATH_CURRENT / args.out
-    else:
-        dpath_out = None
-
-    with open(fpath_global_config, "r") as file_global_config:
-        global_config = json.load(file_global_config)
-
-    dpath_dataset_root = Path(global_config["DATASET_ROOT"])
-
-    heuristic_helper = HeuristicHelper(
-        fpath_imaging=(dpath_dataset_root / "tabular" / "other" / FNAME_IMAGING),
-        fpath_descriptions=(DPATH_CURRENT / ".." / "tabular" / FNAME_DESCRIPTIONS),
+    workflow = HeuristicCheckWorkflow(
+        dpath_root=args.dataset,
+        fname_heudiconv=args.heudiconv,
+        session_id=args.session_id,
+        dpath_out=args.out,
     )
-
-    if dpath_out is not None:
-        dpath_out = Path(dpath_out)
-
-    dpath_heudiconv: Path = dpath_dataset_root / "bids" / fname_heudiconv
-
-    error_messages = []
-
-    for dpath_subject in dpath_heudiconv.iterdir():
-
-        subject = dpath_subject.name
-        fpath_info = dpath_subject / "info" / f"dicominfo_{session_id}.tsv"
-
-        if not fpath_info.exists():
-            error_messages.append(f"No info file found for {subject} {session_id}")
-            continue
-
-        print(f"===== {subject} =====")
-        df_info = pd.read_csv(fpath_info, sep="\t", dtype=str)
-
-        info = {}
-        try:
-            info = infotodict(
-                df_info.itertuples(index=False),
-                testing=True,
-                heuristic_helper=heuristic_helper,
-            )
-        except Exception as exception:
-            error_messages.append(str(exception))
-
-        for key, value in info.items():
-            template: str = key[0]
-            print(f'{template}:\t{",".join(value)}')
-
-            if dpath_out is not None:
-
-                for i in range(len(value)):
-                    fpath_out: Path = (
-                        dpath_out
-                        / template.format(
-                            subject=subject, session=session_id, item=i + 1
-                        )
-                    ).with_suffix(".nii.gz")
-
-                    fpath_out.parent.mkdir(parents=True, exist_ok=True)
-                    fpath_out.touch()
-
-    print("===== ERRORS =====")
-    for error_message in error_messages:
-        print(error_message)
+    workflow.run()
