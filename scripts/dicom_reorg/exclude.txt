@@ -1,0 +1,9 @@
+... logs
+... testing
+... doughnut.tsv
+... .doughnuts
+... *.out
+... squash
+... README.md
+... work
+... pybids_db
