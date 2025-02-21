@@ -77,7 +77,13 @@ echo "[RUN] $UNZIP_COMMAND"
 if [ -z $TESTING ]
 then
     eval "$UNZIP_COMMAND"
+    RETURN_CODE=$?
 fi
 
 echo "========== END TIME =========="
 echo `date`
+
+if [ ! -z $RETURN_CODE ]
+then
+    exit $RETURN_CODE
+fi

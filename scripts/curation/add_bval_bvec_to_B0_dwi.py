@@ -4,13 +4,6 @@ import argparse
 import logging
 
 import nibabel
-from nipoppy.cli.parser import (
-    add_arg_dataset_root,
-    add_arg_dry_run,
-    add_arg_verbosity,
-    add_args_participant_and_session,
-    VERBOSITY_TO_LOG_LEVEL_MAP,
-)
 from nipoppy.utils import (
     participant_id_to_bids_participant_id,
     session_id_to_bids_session_id,
@@ -94,20 +87,20 @@ if __name__ == "__main__":
         ),
         formatter_class=RichHelpFormatter,
     )
-    add_arg_dataset_root(parser)
-    add_args_participant_and_session(parser)
-    add_arg_dry_run(parser)
-    add_arg_verbosity(parser)
+    parser.add_argument("--dataset", required=True)
+    parser.add_argument("--participant-id", required=False)
+    parser.add_argument("--session-id", required=False)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
 
     args = parser.parse_args()
     workflow = DwiBvalBvecWorkflow(
         participant_id=args.participant_id,
         session_id=args.session_id,
-        dpath_root=args.dataset_root,
+        dpath_root=args.dataset,
         dry_run=args.dry_run,
+        verbose=args.verbose,
     )
-    workflow.logger.setLevel(VERBOSITY_TO_LOG_LEVEL_MAP[args.verbosity])
-    add_logfile(workflow.logger, workflow.generate_fpath_log())
 
     # capture warnings
     logging.captureWarnings(True)
