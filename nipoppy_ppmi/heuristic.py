@@ -421,13 +421,21 @@ if __name__ == "__main__":
             for dpath_subject in dpath_heudiconv.iterdir():
 
                 subject = dpath_subject.name
+                # stage1
                 fpath_info = (
                     dpath_subject / "info" / f"dicominfo_ses-{self.session_id}.tsv"
                 )
+                # # stage2
+                # fpath_info = (
+                #     dpath_subject
+                #     / f"ses-{self.session_id}"
+                #     / "info"
+                #     / f"dicominfo_ses-{self.session_id}.tsv"
+                # )
 
                 if not fpath_info.exists():
                     error_messages.append(
-                        f"No info file found for subject {subject} session {self.session_id}"
+                        f"No info file found at {fpath_info} for subject {subject} session {self.session_id}"
                     )
                     continue
 
