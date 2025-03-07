@@ -36,3 +36,6 @@ commands.sh
 freesurfer_license.txt
 templateflow
 fake_bids
+tree-*.txt
+scans-B*.txt
+slurm/to_run/*
