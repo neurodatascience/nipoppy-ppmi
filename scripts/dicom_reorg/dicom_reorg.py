@@ -169,10 +169,7 @@ if __name__ == "__main__":
         dry_run=args.dry_run,
     )
 
-    # set up logging to a file
-    logger = workflow.logger
-    # logger.setLevel(logging.DEBUG)
-    add_logfile(logger, workflow.generate_fpath_log())
+    # workflow.logger.setLevel(logging.DEBUG)
 
     # run the workflow
     try:

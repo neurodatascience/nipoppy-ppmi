@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 from joblib import Parallel, delayed
-from nipoppy.cli.parser import add_arg_dataset_root
 from nipoppy.logger import add_logfile
 from nipoppy.tabular import Doughnut, Manifest
 from nipoppy.workflows import BaseWorkflow
@@ -260,7 +259,12 @@ if __name__ == "__main__":
         description="Find image IDs for PPMI scans that have not been downloaded yet.",
         formatter_class=RichHelpFormatter,
     )
-    add_arg_dataset_root(parser)
+    parser.add_argument(
+        "--dataset",
+        type=Path,
+        help="Path to dataset root",
+        required=True,
+    )
     parser.add_argument(
         "--session-id",
         type=str,
@@ -290,14 +294,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     workflow = FetchDicomDownloadsWorkflow(
-        dpath_root=args.dataset_root.expanduser(),
+        dpath_root=args.dataset.expanduser(),
         session_id=args.session_id,
         n_jobs=args.n_jobs,
         datatypes=args.datatypes,
         chunk_size=args.chunk_size,
     )
     workflow.logger.setLevel(logging.DEBUG)
-    add_logfile(workflow.logger, workflow.generate_fpath_log())
 
     try:
         workflow.run()
