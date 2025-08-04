@@ -5,7 +5,6 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-from nipoppy.cli.parser import add_arg_dataset_root
 from nipoppy.logger import add_logfile, capture_warnings
 from nipoppy.tabular import Bagel, Manifest
 from nipoppy.utils import (
@@ -133,11 +132,16 @@ if __name__ == "__main__":
             "tracking tabular data availability."
         )
     )
-    add_arg_dataset_root(parser)
+    parser.add_argument(
+        "--dataset",
+        type=Path,
+        help="Path to dataset root",
+        required=True,
+    )
     args = parser.parse_args()
 
     workflow = GenerateTabularBagelWorkflow(
-        dpath_root=args.dataset_root,
+        dpath_root=args.dataset,
     )
     # workflow.logger.setLevel(logging.DEBUG)
     add_logfile(workflow.logger, workflow.generate_fpath_log())
