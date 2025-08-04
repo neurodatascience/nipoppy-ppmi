@@ -7,8 +7,8 @@ from pathlib import Path
 import pandas as pd
 
 COL_DPATH_MAPPING = {
-    "in_raw_imaging": "{dpath_root}/scratch/raw_dicom/{participant_dicom_dir}",
-    "in_sourcedata": "{dpath_root}/dicom/ses-{session_id}/{participant_id}",
+    "in_pre_reorg": "{dpath_root}/sourcedata/imaging/pre_reorg/{participant_dicom_dir}",
+    "in_post_reorg": "{dpath_root}/sourcedata/imaging/post_reorg/sub-{participant_id}/ses-{session_id}",
     "in_bids": "{dpath_root}/bids/sub-{participant_id}/ses-{session_id}",
 }
 

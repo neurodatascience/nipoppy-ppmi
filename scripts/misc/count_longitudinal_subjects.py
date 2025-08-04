@@ -6,26 +6,27 @@ import pandas as pd
 COL_SUBJECT = "participant_id"
 COL_SESSION = "session"
 COL_DATATYPE = "datatype"
-DATATYPES_TO_CHECK = ["neuromelanin"]
+# DATATYPES_TO_CHECK = ["neuromelanin"]
 # DATATYPES_TO_CHECK = ["anat", "dwi", "neuromelanin"] # can also have "neuromelanin"
-# DATATYPES_TO_CHECK = ['dwi']
+DATATYPES_TO_CHECK = ['anat', 'dwi']
 SESSION_BL = "ses-BL"
 
 COL_SUBJECT_PPMI = "PATNO"
 COL_STATUS_PPMI = "COHORT_DEFINITION"
 STATUSES_TO_CHECK = [
     # "Healthy Control",
-    # "Parkinson's Disease",
+    "Parkinson's Disease",
     'Prodromal',
 ]  # 'Parkinson\'s Disease', 'Prodromal', 'SWEDD', 'Healthy Control'
 
 COL_HAS_IMAGING = "has_imaging"
 
 fpath_current = Path(__file__).parent
-fpath_manifest = fpath_current / ".." / "manifest.csv"
-fpath_cohort = fpath_current / ".." / "demographics" / "Participant_Status.csv"
+dpath_root = fpath_current / ".." / ".." / ".." / ".."
+fpath_manifest = dpath_root / "manifest.tsv"
+fpath_cohort = dpath_root / "sourcedata" / "tabular" / "Participant_Status.csv"
 
-df_manifest = pd.read_csv(fpath_manifest)
+df_manifest = pd.read_csv(fpath_manifest, sep='\t')
 print(df_manifest)
 
 df_cohort = pd.read_csv(fpath_cohort)
