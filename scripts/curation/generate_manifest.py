@@ -8,7 +8,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from nipoppy.cli.parser import add_arg_dataset_root, add_arg_dry_run
 from nipoppy.logger import add_logfile, capture_warnings
 from nipoppy.tabular import Manifest
 from nipoppy.tabular.dicom_dir_map import DicomDirMap
@@ -429,7 +428,10 @@ if __name__ == "__main__":
         description=HELPTEXT,
         formatter_class=RichHelpFormatter,
     )
-    add_arg_dataset_root(parser)
+    parser.add_argument(
+        "dataset_root",
+        type=Path,
+    )
     parser.add_argument(
         FLAG_REGENERATE,
         action="store_true",
@@ -438,7 +440,11 @@ if __name__ == "__main__":
             " (default: only append rows for new subjects/sessions)"
         ),
     )
-    add_arg_dry_run(parser)
+    parser.add_argument(
+        "--dry_run",
+        action="store_true",
+        help="do not actually save any files",
+    )
     args = parser.parse_args()
 
     workflow = ManifestWorkflow(

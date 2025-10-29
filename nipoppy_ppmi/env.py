@@ -39,6 +39,7 @@ VISIT_IMAGING_MAP = {
     "Month 24": "V06",
     "Month 36": "V08",
     "Month 48": "V10",
+    "Month 60": "V12",
     "Screening": "SC",
     "Premature Withdrawal": "PW",
     "Symptomatic Therapy": "ST",

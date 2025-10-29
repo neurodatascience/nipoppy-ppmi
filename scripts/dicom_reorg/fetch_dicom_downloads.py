@@ -10,7 +10,6 @@ from joblib import Parallel, delayed
 from nipoppy.logger import add_logfile
 from nipoppy.tabular import Doughnut, Manifest
 from nipoppy.workflows import BaseWorkflow
-from rich_argparse import RichHelpFormatter
 
 from nipoppy_ppmi.custom_config import CustomConfig
 from nipoppy_ppmi.env import (
@@ -257,7 +256,6 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Find image IDs for PPMI scans that have not been downloaded yet.",
-        formatter_class=RichHelpFormatter,
     )
     parser.add_argument(
         "--dataset",
