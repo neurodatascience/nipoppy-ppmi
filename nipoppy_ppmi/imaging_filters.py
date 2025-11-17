@@ -48,6 +48,10 @@ FILTERS = {
             "DTI_LR_FA",
             "DTI_RL_ColFA",
             "DTI_LR_ColFA",
+            "DTI_B1000_64dir_PA_ADC",
+            "DTI_B1000_64dir_PA_TRACEW",
+            "DTI_B700_64dir_PA_ADC",
+            "DTI_B700_64dir_PA_TRACEW",
         ],
         "reject_substrings": ["phantom", "adc", "trace"],
     },
@@ -57,12 +61,16 @@ FILTERS = {
             "NM - MT",  # neuromelanin
             "2 NM-GRE",  # neuromelanin
             "NM-MT",  # neuromelanin
+            "MODIFIED 2D GRE MT MTC-NO 2 DYN COND IMPLANT", # neuromelanin
             "2D GRE_MT",  # 2D
             "2D GRE-MT",  # 2D
             "2D GRE MT MTC-NO",  # 2D
             "DTI_B0_PA",  # DTI
             "DTI_revB0_AP",  # DTI
             "t2_localizer",  # localizer
+        ],
+        "exclude_out": [
+            "rsfMRI_PA_Do Not Use",
         ],
         "reject_substrings": ["phantom"],
     },
@@ -103,15 +111,19 @@ EXCLUDE_IN_ANAT = [
     "sag",
     "MPR - SmartBrain",  # only 1 slice
     # other
+    "B0map_v1",
     "B0rf Map",
     "Cal Head 24",
     "SAG SPGR",  # field strength 0.7 Tesla
     "Anon",  # not anat
     "Field_mapping",
     "GRE B0",
+    "GRE B0 map",
+    "GRE",
     "IsoADC",  # not anat
     "t2_tirm_tra_dark-fluid NO BLADE",  # weird FLAIR
     "t2_tirm_tra_dark-fluid_",  # weird FLAIR
+    "MoCoSeries",
     # clipped
     "Transverse",  # top/bottom of brain not complete
     "Coronal",  # front/back of brain not complete

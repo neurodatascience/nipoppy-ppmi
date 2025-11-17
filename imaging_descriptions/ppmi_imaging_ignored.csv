@@ -12,6 +12,9 @@ AX PD  5/1
 AX T1 FLAIR
 Anon
 Ax T1 FLAIR
+Axial oblique 2D T1w Neuromelanin
+Axial oblique 2D T2 FLAIR
+B0map_v1
 B0rf Map
 COR
 COR T2 loc
@@ -22,6 +25,10 @@ DTI Sequence_ADC
 DTI Sequence_FA
 DTI Sequence_TRACEW
 DTI_ADC
+DTI_B1000_64dir_PA_ADC
+DTI_B1000_64dir_PA_TRACEW
+DTI_B700_64dir_PA_ADC
+DTI_B700_64dir_PA_TRACEW
 DTI_FA
 DTI_LR_ADC
 DTI_LR_ColFA
@@ -43,13 +50,17 @@ DUAL_TSE
 DW_SSh separate
 Double_TSE
 Field_mapping
+GRE
 GRE B0
+GRE B0 map
 HighResHippo
 IsoADC
 LOCALIZER
 MIDLINE SAG LOC
+MODIFIED 2D GRE MT MTC-NO 2 DYN COND IMPLANT
 MPR - SmartBrain
 MPRAGE Phantom GRAPPA2
+MoCoSeries
 SAG
 SAG SPGR
 SURVEY
@@ -62,6 +73,7 @@ dDW_SSh ADC
 dDW_SSh SENSE
 eDW_SSh SENSE
 localizer
+rsfMRI_PA_Do Not Use
 sag
 t2_localizer
 t2_tirm_tra_dark-fluid NO BLADE
