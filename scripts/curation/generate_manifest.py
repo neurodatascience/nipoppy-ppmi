@@ -13,7 +13,6 @@ from nipoppy.tabular import Manifest
 from nipoppy.tabular.dicom_dir_map import DicomDirMap
 from nipoppy.utils import session_id_to_bids_session_id
 from nipoppy.workflows import BaseWorkflow
-from rich_argparse import RichHelpFormatter
 
 from nipoppy_ppmi.custom_config import CustomConfig
 from nipoppy_ppmi.env import (
@@ -426,10 +425,10 @@ if __name__ == "__main__":
     """
     parser = argparse.ArgumentParser(
         description=HELPTEXT,
-        formatter_class=RichHelpFormatter,
     )
     parser.add_argument(
-        "dataset_root",
+        "--dataset",
+        dest="dataset_root",
         type=Path,
     )
     parser.add_argument(
@@ -453,7 +452,6 @@ if __name__ == "__main__":
         dry_run=args.dry_run,
     )
     workflow.logger.setLevel(logging.DEBUG)
-    add_logfile(workflow.logger, workflow.generate_fpath_log())
 
     # capture warnings
     logging.captureWarnings(True)

@@ -25,17 +25,6 @@ DEFAULT_DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI]
 DEFAULT_N_JOBS = 4
 DEFAULT_CHUNK_SIZE = 1000
 
-# DPATH_TABULAR_RELATIVE = Path("tabular")
-# DPATH_RAW_DICOM_RELATIVE = Path("scratch", "raw_dicom")
-# DPATH_DESCRIPTIONS = Path(
-#     nipoppy.workflow.tabular.filter_image_descriptions.__file__
-# ).parent
-# FPATH_DESCRIPTIONS = DPATH_DESCRIPTIONS / FNAME_DESCRIPTIONS
-# FPATH_MANIFEST_RELATIVE = DPATH_TABULAR_RELATIVE / FNAME_MANIFEST
-# FPATH_STATUS_RELATIVE = DPATH_RAW_DICOM_RELATIVE / FNAME_DOUGHNUT
-# FPATH_LOGS_RELATIVE = Path("scratch", "logs", "fetch_dicom_downloads.log")
-
-
 def _check_image_id(dpath_raw_dicom, image_id):
     return next(Path(dpath_raw_dicom).glob(f"**/I{image_id}/*.dcm"), None) is not None
 

@@ -39,3 +39,7 @@ fake_bids
 tree-*.txt
 scans-B*.txt
 slurm/to_run/*
+untar-*.txt
+*.sif
+*~
+

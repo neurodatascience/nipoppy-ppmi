@@ -7,7 +7,6 @@ import os
 import re
 from functools import cached_property
 from pathlib import Path
-from rich_argparse import RichHelpFormatter
 
 import pandas as pd
 import pydicom
@@ -148,10 +147,10 @@ class CustomDicomReorgWorkflow(DicomReorgWorkflow):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run the custom DICOM reorganization workflow.",
-        formatter_class=RichHelpFormatter,
     )
     parser.add_argument(
-        "--dataset-root",
+        "--dataset",
+        dest="dataset_root",
         type=Path,
         required=True,
         help="Root directory of Nipoppy dataset",

@@ -6,9 +6,7 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-from rich_argparse import RichHelpFormatter
 from nipoppy.env import StrOrPathLike
-from nipoppy.cli.parser import add_arg_dataset_root, add_arg_dry_run
 from nipoppy.logger import add_logfile
 from nipoppy.workflows import BaseWorkflow
 
@@ -62,14 +60,12 @@ class FilterImageDescriptionsWorkflow(BaseWorkflow):
         indent: int = DEFAULT_INDENT,
         overwrite: bool = False,
         fpath_layout: StrOrPathLike | None = None,
-        logger: logging.Logger | None = None,
         dry_run: bool = False,
     ):
         super().__init__(
             dpath_root=dpath_root,
             name="filter_image_descriptions",
             fpath_layout=fpath_layout,
-            logger=logger,
             dry_run=dry_run,
         )
         # self.fpath_imaging_relative = Path(fpath_imaging_relative)
@@ -382,9 +378,10 @@ if __name__ == "__main__":
             "sub-datatypes. Also creates a CSV file with all images with a description "
             "not matching any datatype."
         ),
-        formatter_class=RichHelpFormatter,
     )
-    add_arg_dataset_root(parser)
+    parser.add_argument(
+        "--dataset", dest="dataset_root", help="Root directory of Nipoppy dataset", required=True
+    )
     # parser.add_argument(
     #     "--fpath-imaging",
     #     type=Path,
@@ -435,7 +432,11 @@ if __name__ == "__main__":
         action="store_true",
         help=(f"overwrite existing files"),
     )
-    add_arg_dry_run(parser)
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Do not actually write output files",
+    )
     args = parser.parse_args()
 
     workflow = FilterImageDescriptionsWorkflow(
