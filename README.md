@@ -8,17 +8,7 @@ Unless otherwise specified, instructions assume the current working directory is
 
 **Note**
 - The `global_config.json`'s `"CUSTOM"` field points to these files. They should be downloaded into `sourcedata/tabular`.
-- Files downloaded from LONI have a timestamp for the date. Instead of changing their names, we can create symlinks pointing to the latest version of the file:
-```bash
-# assume we have old file:   idaSearch.csv -> idaSearch_8_15_2024.csv
-# and we want to replace by: idaSearch.csv -> idaSearch_10_15_2025.csv
-
-# remove the symlink
-rm -i idaSearch.csv
-
-# create the new symlink
-ln -s idaSearch_10_15_2025.csv idaSearch.csv
-```
+- Files downloaded from LONI have a timestamp for the date. Make sure the timestamps are correct in the global config file's `"SUBSTITUTIONS"` field.
 
 Image collections
 - `idaSearch.csv`
@@ -46,27 +36,13 @@ Study data
     - `MDS-UPDRS_Part_I_Patient_Questionnaire.csv`
     - `MDS-UPDRS_Part_IV__Motor_Complications.csv`
 - Non-motor Assessments: ALL
-    - All downloaded, though not all used or up-to-date 
     - `Benton_Judgement_of_Line_Orientation.csv`
     - `Clock_Drawing.csv`
-    - `Cognitive_Categorization.csv`
-    - `Cognitive_Change.csv`
-    - `Epworth_Sleepiness_Scale.csv`
-    - `Geriatric_Depression_Scale__Short_Version_.csv`
-    - `Hopkins_Verbal_Learning_Test_-_Revised.csv`
     - `Letter_-_Number_Sequencing.csv`
-    - `Lexical_Fluency.csv`
     - `Modified_Boston_Naming_Test.csv`
     - `Modified_Semantic_Fluency.csv`
     - `Montreal_Cognitive_Assessment__MoCA_.csv`
-    - `Neuro_QoL__Cognition_Function_-_Short_Form.csv`
-    - `Neuro_QoL__Communication_-_Short_Form.csv`
-    - `QUIP-Current-Short.csv`
-    - `REM_Sleep_Behavior_Disorder_Questionnaire.csv`
-    - `SCOPA-AUT.csv`
-    - `State-Trait_Anxiety_Inventory.csv`
     - `Symbol_Digit_Modalities_Test.csv`
-    - `Trail_Making_A_and_B.csv`
     - `University_of_Pennsylvania_Smell_Identification_Test_UPSIT.csv`
 
 ## Manifest generation
@@ -88,7 +64,7 @@ Requires `idaSearch.csv`.
 
 Run:
 ```bash
-./code/scripts/curation/filter_image_descriptions.py --overwrite
+./code/scripts/curation/filter_image_descriptions.py --dataset . --overwrite
 ```
 
 This will update two files (which are both tracked by Git):
@@ -107,7 +83,7 @@ Requires:
 Run:
 ```bash
 # regenerate the doughnut file if needed
-nipoppy doughnut --dataset . --regenerate
+nipoppy track-curation --dataset . --regenerate
 
 # change --session-id and --chunk-size as needed
 ./code/scripts/dicom_reorg/fetch_dicom_downloads.py --dataset . --session-id BL --chunk-size 1000

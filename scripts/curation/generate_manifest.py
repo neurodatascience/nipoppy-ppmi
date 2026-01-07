@@ -8,11 +8,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from nipoppy.logger import add_logfile, capture_warnings
-from nipoppy.tabular import Manifest
+from nipoppy.logger import get_logger
+from nipoppy.tabular.manifest import Manifest
 from nipoppy.tabular.dicom_dir_map import DicomDirMap
-from nipoppy.utils import session_id_to_bids_session_id
-from nipoppy.workflows import BaseWorkflow
+from nipoppy.utils.bids import session_id_to_bids_session_id
 
 from nipoppy_ppmi.custom_config import CustomConfig
 from nipoppy_ppmi.env import (
@@ -28,6 +27,7 @@ from nipoppy_ppmi.heuristic import RE_NEUROMELANIN
 from nipoppy_ppmi.tabular_filters import loading_func
 from nipoppy_ppmi.imaging_utils import get_all_descriptions
 from nipoppy_ppmi.tabular_utils import get_tabular_info, load_and_process_df_imaging
+from nipoppy_ppmi.workflow import BaseDatasetWorkflow
 
 # subject groups to keep
 GROUPS_KEEP = ["Parkinson's Disease", "Prodromal", "Healthy Control", "SWEDD"]
@@ -52,7 +52,7 @@ def _get_datatype_list(descriptions: pd.Series, description_datatype_map, seen=N
     return datatypes
 
 
-class ManifestWorkflow(BaseWorkflow):
+class ManifestWorkflow(BaseDatasetWorkflow):
 
     def __init__(
         self,
@@ -61,14 +61,15 @@ class ManifestWorkflow(BaseWorkflow):
     ):
         super().__init__(name=Path(__file__).stem, **kwargs)
         self.regenerate = regenerate
+        self.logger = get_logger(verbose=self.verbose)
 
     def run_main(self):
 
         # parse global config
-        visits = self.config.VISIT_IDS
-        expected_sessions = self.config.SESSION_IDS
-
         custom_config = CustomConfig(**self.config.CUSTOM)
+
+        visits = custom_config.VISIT_IDS
+        expected_sessions = visits
 
         # generate filepaths
         fpaths_demographics = list(
@@ -401,7 +402,7 @@ class ManifestWorkflow(BaseWorkflow):
         if self.config.DICOM_DIR_MAP_FILE is None:
             raise RuntimeError("DICOM_DIR_MAP_FILE not specified in the global config")
         df_dicom_dir_map = df_manifest.get_imaging_subset()
-        df_dicom_dir_map[DicomDirMap.col_participant_dicom_dir] = (
+        df_dicom_dir_map.loc[:, DicomDirMap.col_participant_dicom_dir] = (
             df_dicom_dir_map.apply(
                 lambda df: (
                     f"{session_id_to_bids_session_id(df[Manifest.col_session_id])}/{df[Manifest.col_participant_id]}"
@@ -452,10 +453,6 @@ if __name__ == "__main__":
         dry_run=args.dry_run,
     )
     workflow.logger.setLevel(logging.DEBUG)
-
-    # capture warnings
-    logging.captureWarnings(True)
-    capture_warnings(workflow.logger)
 
     try:
         workflow.run()

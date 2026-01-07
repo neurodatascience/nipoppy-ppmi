@@ -3,7 +3,7 @@ from functools import reduce
 from typing import Optional
 
 import pandas as pd
-from nipoppy.tabular import Manifest
+from nipoppy.tabular.manifest import Manifest
 
 from nipoppy_ppmi.custom_config import TabularFileConfig
 from nipoppy_ppmi.env import (

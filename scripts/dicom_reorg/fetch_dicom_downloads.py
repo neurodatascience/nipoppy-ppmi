@@ -7,9 +7,8 @@ from pathlib import Path
 
 import pandas as pd
 from joblib import Parallel, delayed
-from nipoppy.logger import add_logfile
-from nipoppy.tabular import Doughnut, Manifest
-from nipoppy.workflows import BaseWorkflow
+from nipoppy.tabular.curation_status import CurationStatusTable
+from nipoppy.tabular.manifest import Manifest
 
 from nipoppy_ppmi.custom_config import CustomConfig
 from nipoppy_ppmi.env import (
@@ -19,17 +18,19 @@ from nipoppy_ppmi.env import (
 )
 from nipoppy_ppmi.imaging_utils import get_all_descriptions
 from nipoppy_ppmi.tabular_utils import load_and_process_df_imaging
+from nipoppy_ppmi.workflow import BaseDatasetWorkflow
 
 # default command-line arguments
 DEFAULT_DATATYPES = [DATATYPE_ANAT, DATATYPE_DWI]
 DEFAULT_N_JOBS = 4
 DEFAULT_CHUNK_SIZE = 1000
 
+
 def _check_image_id(dpath_raw_dicom, image_id):
     return next(Path(dpath_raw_dicom).glob(f"**/I{image_id}/*.dcm"), None) is not None
 
 
-class FetchDicomDownloadsWorkflow(BaseWorkflow):
+class FetchDicomDownloadsWorkflow(BaseDatasetWorkflow):
 
     def __init__(
         self,
@@ -79,9 +80,9 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
         df_imaging_keep = df_imaging.loc[
             (
                 df_imaging[Manifest.col_participant_id].isin(
-                    self.doughnut.get_imaging_subset(session_id=self.session_id)[
-                        Manifest.col_participant_id
-                    ]
+                    self.curation_status_table.get_imaging_subset(
+                        session_id=self.session_id
+                    )[Manifest.col_participant_id]
                 )
             )
             & (df_imaging[Manifest.col_session_id] == self.session_id)
@@ -103,7 +104,7 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
         participants_downloaded = set(
             [
                 p
-                for p, _ in self.doughnut.get_downloaded_participants_sessions(
+                for p, _ in self.curation_status_table.get_downloaded_participants_sessions(
                     session_id=self.session_id
                 )
             ]
@@ -111,7 +112,7 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
         participants_downloaded.update(
             [
                 p
-                for p, _ in self.doughnut.get_organized_participants_sessions(
+                for p, _ in self.curation_status_table.get_organized_participants_sessions(
                     session_id=self.session_id
                 )
             ]
@@ -119,7 +120,7 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
         participants_downloaded.update(
             [
                 p
-                for p, _ in self.doughnut.get_bidsified_participants_sessions(
+                for p, _ in self.curation_status_table.get_bidsified_participants_sessions(
                     session_id=self.session_id
                 )
             ]
@@ -151,37 +152,39 @@ class FetchDicomDownloadsWorkflow(BaseWorkflow):
                 [Manifest.col_participant_id, COL_IMAGE_ID]
             ].itertuples(index=False)
         )
-        df_imaging_to_check[Doughnut.col_in_pre_reorg] = check_status
+        df_imaging_to_check[CurationStatusTable.col_in_pre_reorg] = check_status
 
         self.logger.info(
-            f"\tFound {int(df_imaging_to_check[Doughnut.col_in_pre_reorg].sum())} images already downloaded"
+            f"\tFound {int(df_imaging_to_check[CurationStatusTable.col_in_pre_reorg].sum())} images already downloaded"
         )
         self.logger.info(
-            f"\tRemaining {int((~df_imaging_to_check[Doughnut.col_in_pre_reorg]).sum())} images need to be downloaded from LONI"
+            f"\tRemaining {int((~df_imaging_to_check[CurationStatusTable.col_in_pre_reorg]).sum())} images need to be downloaded from LONI"
         )
 
         # update status file
         participants_to_update = set(
             df_imaging_to_check.loc[
-                df_imaging_to_check[Doughnut.col_in_pre_reorg],
+                df_imaging_to_check[CurationStatusTable.col_in_pre_reorg],
                 Manifest.col_participant_id,
             ]
         )
         for participant_id in participants_to_update:
-            self.doughnut.set_status(
+            self.curation_status_table.set_status(
                 participant_id=participant_id,
                 session_id=self.session_id,
-                col=Doughnut.col_in_pre_reorg,
+                col=CurationStatusTable.col_in_pre_reorg,
                 status=True,
             )
         self.logger.info(
             f"Updated status for {len(participants_to_update)} participant(s)"
         )
-        self.save_tabular_file(self.doughnut, self.layout.fpath_doughnut)
+        self.save_tabular_file(
+            self.curation_status_table, self.layout.fpath_curation_status
+        )
 
         # get images to download
         image_ids_to_download = df_imaging_to_check.loc[
-            ~df_imaging_to_check[Doughnut.col_in_pre_reorg],
+            ~df_imaging_to_check[CurationStatusTable.col_in_pre_reorg],
             [Manifest.col_participant_id, COL_IMAGE_ID],
         ]
         image_ids_to_download = image_ids_to_download.sort_values(
@@ -272,7 +275,7 @@ if __name__ == "__main__":
         default=DEFAULT_DATATYPES,
     )
     parser.add_argument(
-        "--chunk_size",
+        "--chunk-size",
         type=int,
         default=DEFAULT_CHUNK_SIZE,
         help=f"Number of image IDs to be printed in a chunk (default: {DEFAULT_CHUNK_SIZE})",

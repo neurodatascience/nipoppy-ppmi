@@ -7,8 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 from nipoppy.env import StrOrPathLike
-from nipoppy.logger import add_logfile
-from nipoppy.workflows import BaseWorkflow
 
 from nipoppy_ppmi.custom_config import CustomConfig
 from nipoppy_ppmi.env import (
@@ -30,6 +28,7 @@ from nipoppy_ppmi.env import (
 )
 from nipoppy_ppmi.imaging_filters import EXCLUDE_IN_ANAT, EXCLUDE_IN_ANAT_T1, FILTERS
 from nipoppy_ppmi.imaging_utils import get_all_descriptions
+from nipoppy_ppmi.workflow import BaseDatasetWorkflow
 
 # mapping from BIDS datatype/suffix to PPMI "Modality" column
 # the PPMI "Modality" column is not 100% accurate so we still have to check description strings
@@ -48,7 +47,7 @@ DEFAULT_DPATH_OUT = Path(__file__).parent.parent.parent / "imaging_descriptions"
 DEFAULT_INDENT = 4
 
 
-class FilterImageDescriptionsWorkflow(BaseWorkflow):
+class FilterImageDescriptionsWorkflow(BaseDatasetWorkflow):
 
     def __init__(
         self,
@@ -380,7 +379,10 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "--dataset", dest="dataset_root", help="Root directory of Nipoppy dataset", required=True
+        "--dataset",
+        dest="dataset_root",
+        help="Root directory of Nipoppy dataset",
+        required=True,
     )
     # parser.add_argument(
     #     "--fpath-imaging",
@@ -452,7 +454,7 @@ if __name__ == "__main__":
 
     logger = workflow.logger
     logger.setLevel(logging.DEBUG)
-    add_logfile(logger, workflow.generate_fpath_log())
+    logger.add_file_handler(workflow.generate_fpath_log())
     try:
         workflow.run()
     except Exception:

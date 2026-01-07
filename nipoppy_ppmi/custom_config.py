@@ -15,6 +15,7 @@ class TabularFileConfig(FileConfig):
 
 
 class CustomConfig(BaseModel):
+    VISIT_IDS: list[str]
     DEMOGRAPHICS: dict[str, TabularFileConfig]
     ASSESSMENTS: dict[str, TabularFileConfig]
     IMAGING_INFO: FileConfig
