@@ -4,6 +4,16 @@ This repository contains code to process tabular and imaging data from the Parki
 
 Unless otherwise specified, instructions assume the current working directory is the Nipoppy root directory.
 
+## Python environment
+
+The root directory of the data contains a `uv` virtual environment in the `.venv` directory.
+`uv` can be installed by following instructions [here](https://docs.astral.sh/uv/getting-started/installation/#installation-methods).
+
+To activate the environment:
+```bash
+source .venv/bin/activate
+```
+
 ## PPMI CSV files to download from LONI
 
 **Note**
