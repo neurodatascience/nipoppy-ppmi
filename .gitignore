@@ -42,4 +42,5 @@ slurm/to_run/*
 untar-*.txt
 *.sif
 *~
-
+qsiprep/**/*.txt
+qsiprep/**/*.tsv
