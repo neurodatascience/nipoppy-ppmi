@@ -1,6 +1,7 @@
 #!/bin/bash
 
-#SBATCH --mem=8G
+#SBATCH --job-name=make_squash
+#SBATCH --mem=32G
 #SBATCH --time=2-00:00:00
 
 # ========== SETTINGS ==========

@@ -1,7 +1,8 @@
 #!/bin/bash
+#SBATCH --job-name=unzip_loni_downloads
 #SBATCH --mem=8G
 #SBATCH --time=1:30:00
-#SBATCH --array=0-9
+#SBATCH --array=1-2
 
 # TESTING='UNCOMMENT_IF_TESTING'
 

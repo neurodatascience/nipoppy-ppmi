@@ -19,6 +19,7 @@ source .venv/bin/activate
 **Note**
 - The `global_config.json`'s `"CUSTOM"` field points to these files. They should be downloaded into `sourcedata/tabular`.
 - Files downloaded from LONI have a timestamp for the date. Make sure the timestamps are correct in the global config file's `"SUBSTITUTIONS"` field.
+    - The `idaSearch_<TIMESTAMP>.csv` file must also be symlinked to `idaSearch.csv` for the BIDS conversion to work.
 
 Image collections
 - `idaSearch.csv`
@@ -120,53 +121,47 @@ After the downloads are complete, rename the files to something like `240924_ses
 
 Can use utility job script `code/scripts/dicom_reorg/unzip_loni_downloads.sh`. Example job submission command:
 ```bash
-sbatch --array=1-10 --account=rrg-jbpoline --output=<NIPOPPY_ROOT>/logs/hpc/unzip_loni_downloads_%A_%a.out <NIPOPPY_ROOT>/code/scrip
-ts/dicom_reorg/unzip_loni_downloads.sh <NIPOPPY_ROOT>/sourcedata/imaging/downloads/ses-V06/250401-sesV06-list4_dataset.zip <NIPOPPY_ROOT>/sourcedata/imaging/pre_reorg/ses-V06
+sbatch --array=1-2 --account=rrg-jbpoline --output=./logs/hpc/%x_%A_%a.out ./code/scripts/dicom_reorg/unzip_loni_downloads.sh ./sourcedata/imaging/downloads/ses-BL/260107-BL-list1_dataset.zip ./sourcedata/imaging/pre_reorg/ses-BL
 ```
 
 Move subdirectories out of parent `PPMI` directory and delete `PPMI` directory.
 
-Then regenerate the doughnut file:
+Then regenerate the curation status file:
 ```bash
-nipoppy doughnut --dataset . --regenerate
+nipoppy track-curation --dataset . --regenerate
 ```
 
 ## DICOM reorg
 
-Using custom script. This step is quite slow so need to do it in a Slurm job. Sample submission command:
+Using custom script. This step is quite slow so need to do it in a Slurm job (update: on Rorqual it is much faster). Sample submission command:
 ```bash
-sbatch --account=rrg-jbpoline --time=10:00:00 --mem=1G --job-name=ppmi_reorg --output="<NIPOPPY_ROOT>/logs/hpc/%x_%j.out" --wrap="<ACTIVATE_NIPOPPY_PPMI_ENVIRONMENT> && <NIPOPPY_ROOT>/scripts/dicom_reorg/dicom_reorg.py --dataset <NIPOPPY_ROOT>"
+sbatch --account=rrg-jbpoline --time=1:00:00 --mem=1G --job-name=ppmi_reorg --output="./logs/hpc/%x_%j.out" --wrap="source /lustre09/project/6061841/shared/datasets/ppmi/.venv/bin/activate && ./code/scripts/dicom_reorg/dicom_reorg.py --dataset ."
 ``` 
+
+**Note**: may need to `nipoppy track-curation --regenerate` again (? to check)
 
 ## Create SquashFS archive
 
 Sample commands:
 ```bash
-DATASET_ROOT=`realpath <NIPOPPY_ROOT>`; DPATH_SQUASH=$DATASET_ROOT/sourcedata/imaging/squash; FPATH_SQUASH=$DPATH_SQUASH/ses-BL/250401-sesBL-list1.squashfs; DPATH_LOGS=$DATASET_ROOT/logs/hpc; DPATH_CODE=$DATASET_ROOT/code/scripts/dicom_reorg; sbatch --account=rrg-jbpoline --output=$DPATH_LOGS/slurm-%j.out $DPATH_CODE/make_squash.sh --exclude $DPATH_CODE/exclude.txt --move /ppmi $FPATH_SQUASH $DATASET_ROOT/dicom $DATASET_ROOT/scratch
+DATASET_ROOT=`realpath .`; DPATH_SQUASH=$DATASET_ROOT/sourcedata/imaging/squash; FPATH_SQUASH=$DPATH_SQUASH/ses-BL/260107-BL-list1.squashfs; DPATH_LOGS=$DATASET_ROOT/logs/hpc; DPATH_CODE=$DATASET_ROOT/code/scripts/dicom_reorg; sbatch --account=rrg-jbpoline --output=$DPATH_LOGS/%x-%j.out $DPATH_CODE/make_squash.sh --no-chmod --exclude $DPATH_CODE/exclude.txt --move /ppmi/sourcedata/imaging $FPATH_SQUASH $DATASET_ROOT/sourcedata/imaging/pre_reorg $DATASET_ROOT/sourcedata/imaging/post_reorg
 ```
 
 ## BIDS conversion
 
-### Get participants/sessions to run
+### Run Heudiconv stage 1
 
 Sample command:
 ```bash
-nipoppy bidsify --dataset <NIPOPPY_ROOT> --pipeline heudiconv --pipeline-step convert --session-id BL --write-list <NIPOPPY_ROOT>/code/slurm/to_run/tmp.tsv
-```
-
-### Run Heudiconv stage 1
-
-Modify bids_conversion.sh appropriately (IMPORTANT: set `--pipeline-step` to "prepare")
-```bash
-sbatch <NIPOPPY_ROOT>/code/slurm/bids_conversion.sh
+nipoppy bidsify --pipeline heudiconv --pipeline-step prepare --session-id BL --hpc slurm
 ```
 
 ### Heudiconv testing
 
+Sample command:
 ```bash
-cd <NIPOPPY_ROOT>/code/nipoppy_ppmi/
-rm -rf fake_bids/
-/<NIPOPPY_ROOT>/code/nipoppy_ppmi/heuristic.py --dataset <NIPOPPY_ROOT> --session-id BL
+rm -rf ./code/nipoppy_ppmi/fake_bids
+./code/nipoppy_ppmi/heuristic.py --dataset . --session-id BL
 ```
 
 Make sure the above script does not produce errors.
@@ -175,9 +170,9 @@ Rename `.heudiconv` directory in `<NIPOPPY_ROOT>/bids`
 
 ### Run Heudiconv stage 2
 
-IMPORTANT: set `--pipeline-step` to "convert"
+Sample command:
 ```bash
-sbatch <NIPOPPY_ROOT>/code/slurm/bids_conversion.sh
+nipoppy bidsify --pipeline heudiconv --pipeline-step convert --session-id BL --hpc slurm
 ```
 
 ### Clean up `.heudiconv` directories
@@ -189,13 +184,23 @@ sbatch <NIPOPPY_ROOT>/code/slurm/bids_conversion.sh
 ### Update doughnut with BIDS data
 
 ```bash
-nipoppy doughnut <NIPOPPY_ROOT> --regenerate
+nipoppy track-curation . --regenerate
 ```
 
 ### Fix DWI data
 
 ```bash
-./code/scripts/curation/add_bval_bvec_to_B0_dwi.py --dataset <NIPOPPY_ROOT> --session-id BL
+./code/scripts/curation/add_bval_bvec_to_B0_dwi.py --dataset . --session-id BL
+```
+
+### Delete pre-reorg and post-reorg DICOM files
+
+Only if SquashFS file has been created!
+
+Sample commands:
+```bash
+rm -rf ./sourcedata/imaging/pre_reorg/ses-*
+rm -rf ./sourcedata/imaging/post_reorg/sub-*
 ```
 
 ## Other (older) notes

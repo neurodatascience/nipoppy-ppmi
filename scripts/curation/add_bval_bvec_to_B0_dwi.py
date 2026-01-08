@@ -1,19 +1,16 @@
 #!/usr/bin/env python
 
 import argparse
-import logging
 
 import nibabel
-from nipoppy.utils import (
+from nipoppy.utils.bids import (
     participant_id_to_bids_participant_id,
     session_id_to_bids_session_id,
 )
-from nipoppy.workflows import BaseWorkflow
-from nipoppy.logger import add_logfile, capture_warnings
-from rich_argparse import RichHelpFormatter
+from nipoppy_ppmi.workflow import BaseDatasetWorkflow
 
 
-class DwiBvalBvecWorkflow(BaseWorkflow):
+class DwiBvalBvecWorkflow(BaseDatasetWorkflow):
     def __init__(self, participant_id, session_id, **kwargs):
         super().__init__(**kwargs, name="dwi_bval_bvec")
         self.participant_id = participant_id
@@ -24,7 +21,7 @@ class DwiBvalBvecWorkflow(BaseWorkflow):
         for (
             participant_id,
             session_id,
-        ) in self.doughnut.get_bidsified_participants_sessions(
+        ) in self.curation_status_table.get_bidsified_participants_sessions(
             participant_id=self.participant_id, session_id=self.session_id
         ):
 
@@ -85,7 +82,6 @@ if __name__ == "__main__":
         description=(
             "Make sure that all dwi files have a corresponding bval and bvec file."
         ),
-        formatter_class=RichHelpFormatter,
     )
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--participant-id", required=False)
@@ -101,10 +97,6 @@ if __name__ == "__main__":
         dry_run=args.dry_run,
         verbose=args.verbose,
     )
-
-    # capture warnings
-    logging.captureWarnings(True)
-    capture_warnings(workflow.logger)
 
     try:
         workflow.run()

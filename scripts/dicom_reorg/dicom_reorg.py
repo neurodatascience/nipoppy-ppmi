@@ -2,7 +2,6 @@
 """DICOM file organization for PPMI (following old)."""
 
 import argparse
-import logging
 import os
 import re
 from functools import cached_property
@@ -11,17 +10,19 @@ from pathlib import Path
 import pandas as pd
 import pydicom
 
-from nipoppy.logger import add_logfile
-from nipoppy.utils import (
+from nipoppy.logger import get_logger
+from nipoppy.utils.bids import (
     participant_id_to_bids_participant_id,
     session_id_to_bids_session_id,
 )
-from nipoppy.workflows import DicomReorgWorkflow
+from nipoppy.workflows.dicom_reorg import DicomReorgWorkflow
 
 from nipoppy_ppmi.custom_config import CustomConfig
 from nipoppy_ppmi.env import COL_IMAGE_ID
 from nipoppy_ppmi.imaging_utils import RE_IMAGE_ID
 from nipoppy_ppmi.tabular_utils import load_and_process_df_imaging
+
+logger = get_logger()
 
 
 def is_derived_dicom(fpath: Path) -> bool:
@@ -40,7 +41,7 @@ class CustomDicomReorgWorkflow(DicomReorgWorkflow):
 
     @cached_property
     def custom_config(self) -> CustomConfig:
-        return CustomConfig(**self.config.CUSTOM)
+        return CustomConfig(**self.study.config.CUSTOM)
 
     @cached_property
     def df_imaging_info(self) -> pd.DataFrame:
@@ -86,7 +87,7 @@ class CustomDicomReorgWorkflow(DicomReorgWorkflow):
         fpaths_to_reorg = self.get_fpaths_to_reorg(participant_id, session_id)
 
         dpath_reorganized: Path = (
-            self.layout.dpath_post_reorg
+            self.study.layout.dpath_post_reorg
             / participant_id_to_bids_participant_id(participant_id)
             / session_id_to_bids_session_id(session_id)
         )
@@ -98,9 +99,7 @@ class CustomDicomReorgWorkflow(DicomReorgWorkflow):
             if self.check_dicoms:
                 try:
                     if is_derived_dicom(fpath_source):
-                        self.logger.warning(
-                            f"Derived DICOM file detected: {fpath_source}"
-                        )
+                        logger.warning(f"Derived DICOM file detected: {fpath_source}")
                 except Exception as exception:
                     raise RuntimeError(
                         f"Error checking DICOM file {fpath_source}: {exception}"
@@ -124,7 +123,7 @@ class CustomDicomReorgWorkflow(DicomReorgWorkflow):
 
             # either create symlinks or copy original files
             if self.copy_files:
-                self.copy(fpath_source, fpath_dest, log_level=logging.DEBUG)
+                self.copy(fpath_source, fpath_dest)
             else:
                 fpath_source = os.path.relpath(
                     fpath_source.resolve(), fpath_dest.parent
@@ -132,14 +131,13 @@ class CustomDicomReorgWorkflow(DicomReorgWorkflow):
                 self.create_symlink(
                     path_source=fpath_source,
                     path_dest=fpath_dest,
-                    log_level=logging.DEBUG,
                 )
 
         # update doughnut entry
-        self.doughnut.set_status(
+        self.curation_status_table.set_status(
             participant_id=participant_id,
             session_id=session_id,
-            col=self.doughnut.col_in_post_reorg,
+            col=self.curation_status_table.col_in_post_reorg,
             status=True,
         )
 

@@ -384,17 +384,17 @@ if __name__ == "__main__":
     that this assumes that HeuDiConv will be run with the `-b`/`--bids` option!
     """
 
-    from nipoppy.config import Config
+    from nipoppy.config.main import Config
     from nipoppy.layout import DatasetLayout
-    from nipoppy.workflows.base import BaseWorkflow
-    from nipoppy.utils import check_session_id
+    from nipoppy.utils.bids import check_session_id
 
     from nipoppy_ppmi.custom_config import CustomConfig
+    from nipoppy_ppmi.workflow import BaseDatasetWorkflow
 
     DEFAULT_DNAME_HEUDICONV = ".heudiconv"
-    DEFAULT_DNAME_OUT = "fake_bids"
+    DEFAULT_DPATH_OUT = Path(__file__).parent / "fake_bids"
 
-    class HeuristicCheckWorkflow(BaseWorkflow):
+    class HeuristicCheckWorkflow(BaseDatasetWorkflow):
         def __init__(
             self, dpath_root, fname_heudiconv, session_id, dpath_out, **kwargs
         ):
@@ -495,9 +495,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--out",
-        default=DEFAULT_DNAME_OUT,
+        default=DEFAULT_DPATH_OUT,
         type=str,
-        help=f"output directory for dummy BIDS files (default: {DEFAULT_DNAME_OUT})",
+        help=f"output directory for dummy BIDS files (default: {DEFAULT_DPATH_OUT})",
     )
 
     args = parser.parse_args()
