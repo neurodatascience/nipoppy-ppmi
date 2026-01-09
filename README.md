@@ -140,12 +140,12 @@ sbatch --account=rrg-jbpoline --time=1:00:00 --mem=1G --job-name=ppmi_reorg --ou
 
 **Note**: may need to `nipoppy track-curation --regenerate` again (? to check)
 
-## Create SquashFS archive
+<!-- ## Create SquashFS archive
 
 Sample commands:
 ```bash
 DATASET_ROOT=`realpath .`; DPATH_SQUASH=$DATASET_ROOT/sourcedata/imaging/squash; FPATH_SQUASH=$DPATH_SQUASH/ses-BL/260107-BL-list1.squashfs; DPATH_LOGS=$DATASET_ROOT/logs/hpc; DPATH_CODE=$DATASET_ROOT/code/scripts/dicom_reorg; sbatch --account=rrg-jbpoline --output=$DPATH_LOGS/%x-%j.out $DPATH_CODE/make_squash.sh --no-chmod --exclude $DPATH_CODE/exclude.txt --move /ppmi/sourcedata/imaging $FPATH_SQUASH $DATASET_ROOT/sourcedata/imaging/pre_reorg $DATASET_ROOT/sourcedata/imaging/post_reorg
-```
+``` -->
 
 ## BIDS conversion
 
@@ -179,7 +179,6 @@ nipoppy bidsify --pipeline heudiconv --pipeline-step convert --session-id BL --h
 
 - rename
 - tar (inside `bids/` directory: `tar -czvf .heudiconv-<EXTRA>.tar.gz .heudiconv-<EXTRA>/`)
-- delete (IMPORTANT: only do this if SquashFS creation is done!)
 
 ### Update doughnut with BIDS data
 
@@ -194,8 +193,6 @@ nipoppy track-curation . --regenerate
 ```
 
 ### Delete pre-reorg and post-reorg DICOM files
-
-Only if SquashFS file has been created!
 
 Sample commands:
 ```bash
